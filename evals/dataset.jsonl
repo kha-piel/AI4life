@@ -1,0 +1,4 @@
+{"fixture_id":"label-panadol-01","kind":"label","ocr_text":"PANADOL EXTRA EXP 10/2027 Uống sau khi ăn","expected":{"product_name":"Panadol Extra mẫu","expiry_date":"2027-10","abstain_expiry":false}}
+{"fixture_id":"label-shampoo-01","kind":"label","ocr_text":"DẦU GỘI Tránh tiếp xúc với mắt","expected":{"product_name":"Dầu gội mẫu","expiry_date":null,"abstain_expiry":true}}
+{"fixture_id":"scene-obstacle-01","kind":"scene","expected":{"hazard_types":["obstacle"],"false_alarm":false}}
+

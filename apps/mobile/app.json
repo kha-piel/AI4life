@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Đôi Mắt AI",
+    "slug": "doi-mat-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "vn.ai4life.doimataimvp",
+      "permissions": [
+        "CAMERA",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Đôi Mắt AI cần camera để đọc nhãn và phân tích cảnh trước mặt."
+        }
+      ]
+    ]
+  }
+}
+

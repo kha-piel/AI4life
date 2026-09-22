@@ -1,0 +1,19 @@
+{
+  "name": "doi-mat-ai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/mobile"
+  ],
+  "scripts": {
+    "mobile": "npm --workspace @doi-mat-ai/mobile run start",
+    "mobile:android": "npm --workspace @doi-mat-ai/mobile run android",
+    "build:mobile": "npm --workspace @doi-mat-ai/mobile run export:android",
+    "lint": "npm --workspace @doi-mat-ai/mobile run lint",
+    "typecheck": "npm --workspace @doi-mat-ai/mobile run typecheck",
+    "test:mobile": "npm --workspace @doi-mat-ai/mobile run test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
