@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -22,7 +23,18 @@ import type {
   LabelAnalysis,
   SceneAnalysis,
 } from "./src/domain/types";
-import { analyzeLabel, analyzeScene, ApiClientError } from "./src/services/apiClient";
+import {
+  analyzeLabel,
+  analyzeScene,
+  ApiClientError,
+  APP_AUTH_REQUIRED,
+  validateAccessCode,
+} from "./src/services/apiClient";
+import {
+  clearAccessToken,
+  getAccessToken,
+  saveAccessToken,
+} from "./src/services/accessToken";
 import {
   signalError,
   signalHazard,
@@ -36,7 +48,13 @@ import {
 
 type Screen = "home" | CaptureMode;
 
-function HomeScreen({ onSelect }: { onSelect: (screen: CaptureMode) => void }) {
+function HomeScreen({
+  onSelect,
+  onChangeAccessCode,
+}: {
+  onSelect: (screen: CaptureMode) => void;
+  onChangeAccessCode?: () => void;
+}) {
   return (
     <ScrollView
       contentContainerStyle={styles.home}
@@ -71,7 +89,89 @@ function HomeScreen({ onSelect }: { onSelect: (screen: CaptureMode) => void }) {
           tế. Hãy kiểm tra lại khi thông tin quan trọng không rõ.
         </Text>
       </View>
+      {onChangeAccessCode ? (
+        <ActionButton
+          label="Đổi mã truy cập"
+          hint="Xóa mã hiện tại và nhập mã mời khác"
+          onPress={onChangeAccessCode}
+          variant="secondary"
+        />
+      ) : null}
     </ScrollView>
+  );
+}
+
+function AccessSetupScreen({ onAuthorized }: { onAuthorized: () => void }) {
+  const [accessCode, setAccessCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const connect = useCallback(async () => {
+    const normalized = accessCode.trim();
+    if (!normalized) {
+      setError("Hãy nhập mã mời do người quản lý ứng dụng cung cấp.");
+      return;
+    }
+
+    setIsChecking(true);
+    setError(null);
+    try {
+      await validateAccessCode(normalized);
+      await saveAccessToken(normalized);
+      onAuthorized();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await speak("Đã kết nối máy chủ an toàn.");
+    } catch (caught) {
+      const message =
+        caught instanceof ApiClientError
+          ? caught.message
+          : "Không thể kiểm tra mã truy cập lúc này.";
+      setError(message);
+      await signalError();
+      await speak(message);
+    } finally {
+      setIsChecking(false);
+    }
+  }, [accessCode, onAuthorized]);
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.disclaimer}>
+        <Text style={styles.eyebrow}>BẢN THỬ NGHIỆM RIÊNG TƯ</Text>
+        <Text style={styles.heading} accessibilityRole="header">
+          Nhập mã truy cập
+        </Text>
+        <Text style={styles.lead}>
+          Mỗi người thử nghiệm dùng một mã riêng. Mã được lưu an toàn trên thiết
+          bị và không nằm trong file APK.
+        </Text>
+        <TextInput
+          accessibilityLabel="Mã truy cập"
+          accessibilityHint="Nhập mã mời do người quản lý ứng dụng cung cấp"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isChecking}
+          onChangeText={setAccessCode}
+          onSubmitEditing={() => void connect()}
+          placeholder="Nhập mã mời"
+          placeholderTextColor="#91a8bf"
+          secureTextEntry
+          style={styles.accessInput}
+          value={accessCode}
+        />
+        {error ? (
+          <Text style={styles.errorText} accessibilityLiveRegion="assertive">
+            {error}
+          </Text>
+        ) : null}
+        <ActionButton
+          label={isChecking ? "Đang kiểm tra…" : "Kết nối"}
+          hint="Kiểm tra mã và mở ứng dụng"
+          disabled={isChecking}
+          onPress={() => void connect()}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -336,12 +436,52 @@ function VisionScreen({
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [accessState, setAccessState] = useState<
+    "loading" | "required" | "authorized"
+  >(APP_AUTH_REQUIRED ? "loading" : "authorized");
+
+  useEffect(() => {
+    if (!APP_AUTH_REQUIRED) return;
+    let active = true;
+    void getAccessToken()
+      .then((token) => {
+        if (active) setAccessState(token ? "authorized" : "required");
+      })
+      .catch(() => {
+        if (active) setAccessState("required");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (accessState === "loading") {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" color="#ffd400" />
+        <Text style={styles.status}>Đang mở kho mã truy cập…</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (accessState === "required") {
+    return <AccessSetupScreen onAuthorized={() => setAccessState("authorized")} />;
+  }
 
   return (
     <SafeAreaView style={styles.app}>
       <StatusBar style="light" />
       {screen === "home" ? (
-        <HomeScreen onSelect={setScreen} />
+        <HomeScreen
+          onSelect={setScreen}
+          onChangeAccessCode={
+            APP_AUTH_REQUIRED
+              ? () => {
+                  void clearAccessToken().then(() => setAccessState("required"));
+                }
+              : undefined
+          }
+        />
       ) : (
         <VisionScreen mode={screen} onBack={() => setScreen("home")} />
       )}
@@ -385,6 +525,17 @@ const styles = StyleSheet.create({
   },
   safetyTitle: { color: "#ffe476", fontWeight: "900", fontSize: 20 },
   safetyText: { color: "#ffffff", fontSize: 17, lineHeight: 25 },
+  accessInput: {
+    minHeight: 58,
+    borderWidth: 2,
+    borderColor: "#68b7ff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    color: "#ffffff",
+    backgroundColor: "#0d2845",
+    fontSize: 19,
+  },
+  errorText: { color: "#ffb4ab", fontSize: 17, lineHeight: 24 },
   disclaimer: {
     flex: 1,
     justifyContent: "center",

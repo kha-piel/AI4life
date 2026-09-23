@@ -70,6 +70,10 @@ class HealthData(BaseModel):
     provider: str
 
 
+class AccessData(BaseModel):
+    status: Literal["authorized"] = "authorized"
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
@@ -83,4 +87,3 @@ class ApiResponse(BaseModel, Generic[DataT]):
     success: bool
     data: DataT | None
     error: ErrorDetail | None
-

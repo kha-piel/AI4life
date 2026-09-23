@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import time
 import uuid
 from collections import defaultdict, deque
@@ -11,10 +12,18 @@ from app.schemas import ApiResponse, ErrorDetail
 
 
 class InMemoryRateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, *, requests: int, window_seconds: int) -> None:
+    def __init__(
+        self,
+        app,
+        *,
+        requests: int,
+        window_seconds: int,
+        valid_token_hashes: frozenset[str] = frozenset(),
+    ) -> None:
         super().__init__(app)
         self.requests = requests
         self.window_seconds = window_seconds
+        self.valid_token_hashes = valid_token_hashes
         self._events: dict[str, deque[float]] = defaultdict(deque)
         self._lock = asyncio.Lock()
 
@@ -24,7 +33,17 @@ class InMemoryRateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path == "/health":
             return await call_next(request)
 
-        client_key = request.client.host if request.client else "unknown"
+        authorization = request.headers.get("Authorization", "")
+        scheme, _, token = authorization.partition(" ")
+        token_hash = (
+            hashlib.sha256(token.encode("utf-8")).hexdigest()
+            if scheme.casefold() == "bearer" and token
+            else ""
+        )
+        if token_hash in self.valid_token_hashes:
+            client_key = f"token:{token_hash}"
+        else:
+            client_key = f"ip:{request.client.host if request.client else 'unknown'}"
         now = time.monotonic()
         async with self._lock:
             events = self._events[client_key]

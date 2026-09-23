@@ -5,12 +5,20 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
+from app.auth import require_app_access, validate_access_settings
 from app.config import Settings, get_settings
 from app.dependencies import get_provider
-from app.errors import ApiError, VisionProviderError
+from app.errors import (
+    ApiError,
+    AppConfigurationError,
+    VisionProviderConfigurationError,
+    VisionProviderError,
+)
 from app.providers.base import VisionProvider
+from app.providers.factory import validate_provider_settings
 from app.schemas import (
     ApiResponse,
+    AccessData,
     HealthData,
     LabelAnalysis,
     SceneAnalysis,
@@ -39,9 +47,36 @@ async def _read_image(
 
 @router.get("/health", response_model=ApiResponse[HealthData])
 async def health(settings: Annotated[Settings, Depends(get_settings)]):
+    try:
+        validate_provider_settings(settings)
+    except VisionProviderConfigurationError as exc:
+        raise ApiError(
+            503,
+            "provider_not_configured",
+            "AI phân tích ảnh thật chưa được cấu hình. Hãy kiểm tra API key của provider.",
+        ) from exc
+    try:
+        validate_access_settings(settings)
+    except AppConfigurationError as exc:
+        raise ApiError(
+            503,
+            "app_auth_not_configured",
+            "Máy chủ chưa cấu hình quyền truy cập ứng dụng.",
+        ) from exc
     return ApiResponse(
         success=True,
         data=HealthData(provider=settings.vision_provider),
+        error=None,
+    )
+
+
+@router.get("/v1/access-check", response_model=ApiResponse[AccessData])
+async def access_check(
+    _: Annotated[None, Depends(require_app_access)],
+):
+    return ApiResponse(
+        success=True,
+        data=AccessData(),
         error=None,
     )
 
@@ -52,6 +87,7 @@ async def analyze_label(
     image: Annotated[UploadFile, File(...)],
     provider: Annotated[VisionProvider, Depends(get_provider)],
     settings: Annotated[Settings, Depends(get_settings)],
+    _: Annotated[None, Depends(require_app_access)],
     ocr_text: Annotated[str | None, Form()] = None,
     locale: Annotated[str, Form()] = "vi-VN",
 ):
@@ -93,6 +129,7 @@ async def analyze_scene(
     image: Annotated[UploadFile, File(...)],
     provider: Annotated[VisionProvider, Depends(get_provider)],
     settings: Annotated[Settings, Depends(get_settings)],
+    _: Annotated[None, Depends(require_app_access)],
     locale: Annotated[str, Form()] = "vi-VN",
 ):
     started = time.monotonic()

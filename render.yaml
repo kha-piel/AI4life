@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: doi-mat-ai-api
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: VISION_PROVIDER
+        value: groq
+      - key: ALLOW_FIXTURE_FALLBACK
+        value: "false"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: qwen/qwen3.8-27b
+      - key: GROQ_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: PROVIDER_TIMEOUT_SECONDS
+        value: "30"
+      - key: REQUIRE_APP_AUTH
+        value: "true"
+      - key: APP_ACCESS_TOKEN_HASHES
+        sync: false
+      - key: MAX_UPLOAD_BYTES
+        value: "5242880"
+      - key: RATE_LIMIT_REQUESTS
+        value: "30"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: ALLOWED_ORIGINS
+        value: ""
+      - key: LOG_LEVEL
+        value: INFO

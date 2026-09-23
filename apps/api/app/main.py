@@ -55,13 +55,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         InMemoryRateLimitMiddleware,
         requests=active_settings.rate_limit_requests,
         window_seconds=active_settings.rate_limit_window_seconds,
+        valid_token_hashes=active_settings.app_access_token_hash_set,
     )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=active_settings.allowed_origin_list,
         allow_credentials=False,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
 
     @app.exception_handler(ApiError)

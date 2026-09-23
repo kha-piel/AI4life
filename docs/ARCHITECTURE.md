@@ -39,7 +39,8 @@ Người dùng có thể lấy đúng vật phẩm và đọc được thông ti
 - Đọc kết quả bằng TTS tiếng Việt.
 - Quét cảnh theo nhịp 2–3 giây, cảnh báo tập nguy cơ giới hạn.
 - Rung theo mức cảnh báo.
-- Chế độ demo fixture được gắn nhãn rõ khi không có API key.
+- Đường chạy Android dùng Groq vision thật và fail-closed; fixture chỉ tồn tại
+  trong test/evaluation offline, không thay thế ảnh thật khi provider lỗi.
 - Không lưu ảnh mặc định; log chỉ chứa thời gian, độ trễ, mã lỗi và loại kết quả.
 
 ### Không có trong MVP
@@ -78,7 +79,8 @@ flowchart LR
     O[OCR on-device]
     T[TTS + Haptics]
     A[FastAPI]
-    V[VisionProvider]
+    V[VisionProvider adapter]
+    R[Groq Chat Completions<br/>Qwen vision]
 
     U --> M
     M --> C
@@ -86,6 +88,8 @@ flowchart LR
     O --> M
     C -->|ảnh nén + OCR text| A
     A --> V
+    V -->|ảnh base64 + JSON mode| R
+    R -->|JSON object| V
     V -->|JSON có cấu trúc| A
     A -->|kết quả + confidence + evidence| M
     M --> T
@@ -155,7 +159,7 @@ Response:
     "evidence_text": ["PANADOL EXTRA", "EXP 10/2027", "Uống sau khi ăn"],
     "confidence": "high",
     "speech_text": "Đây có thể là Panadol Extra. Hạn sử dụng tháng 10 năm 2027.",
-    "provider": "openai",
+    "provider": "groq",
     "demo_mode": false
   },
   "error": null
@@ -183,7 +187,7 @@ Response:
       }
     ],
     "limitations": ["Không đo được khoảng cách chính xác từ ảnh này."],
-    "provider": "openai",
+    "provider": "groq",
     "demo_mode": false
   },
   "error": null
@@ -195,7 +199,8 @@ Error response dùng cùng envelope với `success: false`, `data: null` và
 
 ## 8. Biên hệ thống và bảo mật
 
-- API key chỉ nằm ở backend; không đóng gói trong ứng dụng.
+- API key chỉ được truyền từ Docker environment vào backend, không vào bundle mobile.
+- Backend không ghi ảnh hoặc OCR vào log; ảnh chỉ tồn tại trong bộ nhớ của request.
 - Kiểm tra MIME, kích thước, timeout và rate limit cho upload.
 - Không log ảnh, OCR text đầy đủ hoặc dữ liệu cá nhân.
 - Xử lý ảnh trong bộ nhớ và giải phóng sau request.
@@ -210,11 +215,41 @@ Error response dùng cùng envelope với `success: false`, `data: null` và
 | Không có mạng | OCR on-device đọc toàn bộ chữ; giải thích rằng nhận diện nâng cao chưa khả dụng |
 | Ảnh mờ/tối | Không gọi provider; hướng dẫn chụp lại |
 | Provider timeout | Rung lỗi một lần, giữ màn hình camera, cho phép thử lại |
+| Thiếu/sai API key | Health/API trả `provider_not_configured` hoặc `provider_failure`; không dùng fixture |
 | Confidence thấp | Dùng ngôn ngữ “có thể”, đọc bằng chứng và không khẳng định |
 | TTS lỗi | Hiển thị chữ lớn, tương phản cao và phát accessibility announcement |
 | Quá nhiều cảnh báo | Deduplicate theo loại/hướng trong cửa sổ thời gian |
 
-## 10. Hướng nâng cấp production
+## 10. Quyết định live vision
+
+- `VISION_PROVIDER=groq` và `ALLOW_FIXTURE_FALLBACK=false` là mặc định runtime.
+- Ảnh đi Android → FastAPI → adapter `VisionProvider` → Groq Chat Completions; model chỉ
+  được gọi từ backend và mobile không bao giờ nhận API key.
+- Groq JSON mode không tự bảo đảm toàn bộ schema, nên output luôn bị Pydantic
+  kiểm tra trước khi trả về mobile. Nội dung chữ
+  trong ảnh được coi là dữ liệu không tin cậy để giảm indirect prompt injection.
+- Không retry tự động request vision để tránh nhân đôi chi phí và độ trễ khi trạng
+  thái request không rõ; người dùng chủ động chụp/thử lại.
+- Fixture provider được giữ cho test deterministic và evaluation plumbing, nhưng
+  việc bật nó trong runtime là một lựa chọn demo rõ ràng, không phải fallback.
+- Release chỉ được xem là đạt khi test với ảnh thật xác nhận `provider=groq`,
+  `demo_mode=false`, tên/bằng chứng liên quan trực tiếp tới ảnh đã chụp.
+
+## 11. Hướng nâng cấp production
+
+### Preview ổn định qua Internet
+
+- EAS Internal Distribution tạo APK cài trực tiếp, không phụ thuộc Expo Go,
+  Metro hoặc IP của máy phát triển.
+- APK chỉ chứa URL HTTPS công khai. Groq key chỉ tồn tại trong secret store của
+  backend cloud.
+- Người thử nghiệm nhập mã mời riêng; Android lưu mã bằng SecureStore và backend
+  so sánh SHA-256 hash constant-time trước khi nhận ảnh.
+- Render Blueprint chạy Docker ở Singapore với health check `/health`. Gói
+  luôn-chạy được chọn thay vì free để tránh cold start sau idle.
+- Đây là private preview auth, chưa phải hệ thống identity production. Khi phát
+  hành công khai cần user identity/app attestation, token lifecycle và managed
+  rate limiting.
 
 - Native Android/Kotlin hoặc native module cho pipeline CameraX ổn định.
 - Object detection/segmentation on-device bằng LiteRT/MediaPipe.
@@ -223,7 +258,7 @@ Error response dùng cùng envelope với `success: false`, `data: null` và
 - Đánh giá với người khiếm thị thật, nhiều thiết bị, ánh sáng và accent tiếng Việt.
 - Safety case, monitoring và quy trình báo lỗi trước khi quảng bá như công cụ hỗ trợ di chuyển.
 
-## 11. Tài liệu kỹ thuật chính
+## 12. Tài liệu kỹ thuật chính
 
 - Expo Camera: https://docs.expo.dev/versions/latest/sdk/camera/
 - Expo Speech: https://docs.expo.dev/versions/latest/sdk/speech/

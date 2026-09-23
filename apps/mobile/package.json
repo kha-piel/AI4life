@@ -8,6 +8,8 @@
     "android": "expo start --android",
     "web": "expo start --web",
     "export:android": "expo export --platform android --output-dir /tmp/doi-mat-ai-export",
+    "build:apk:eas": "npx eas-cli@24.7.0 build --platform android --profile preview",
+    "build:production-apk:eas": "npx eas-cli@24.7.0 build --platform android --profile production-apk",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -15,7 +17,10 @@
   "dependencies": {
     "expo": "~57.0.24",
     "expo-camera": "~57.0.5",
+    "expo-constants": "~57.0.19",
+    "expo-file-system": "~57.0.7",
     "expo-haptics": "~57.0.3",
+    "expo-secure-store": "~57.0.4",
     "expo-speech": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",

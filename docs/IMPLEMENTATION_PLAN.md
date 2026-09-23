@@ -7,7 +7,7 @@
 - No database, account system, RAG, agent framework, or persistent image storage.
 - Label reading is the primary demo path.
 - Exploration is sampled scene analysis, not real-time navigation.
-- Fixture provider is explicit and deterministic; OpenAI vision is optional via environment variables.
+- Fixture provider is explicit and deterministic; Groq is the default live vision provider and OpenAI remains optional.
 
 ## Dependency order
 
@@ -15,7 +15,7 @@
 |---|---|---|---|
 | TASK-01 | Root workspace, environment template, shared commands | — | done |
 | TASK-02 | API schemas, error envelope, configuration | TASK-01 | done |
-| TASK-03 | Fixture and OpenAI vision providers with fallback | TASK-02 | done |
+| TASK-03 | Fixture, Groq and OpenAI vision providers with explicit fallback policy | TASK-02 | done |
 | TASK-04 | Upload validation, rate limit, label/scene endpoints | TASK-02, TASK-03 | done |
 | TASK-05 | Mobile domain types, API client, state reducer | TASK-02 | done |
 | TASK-06 | Accessible home, label camera, result and error flows | TASK-05 | done; device review pending |
@@ -23,14 +23,16 @@
 | TASK-08 | Backend and mobile unit/API tests | TASK-03, TASK-07 | done |
 | TASK-09 | Deterministic evaluation dataset and report command | TASK-03 | done |
 | TASK-10 | Docker, README commands, demo verification | TASK-04, TASK-08, TASK-09 | done |
+| TASK-11 | EAS APK, Render HTTPS and revocable invite-code access | TASK-04, TASK-08, TASK-10 | done; account deployment pending |
 
 ## Verification result
 
-- FastAPI: 12 tests passed.
-- Mobile domain/state: 6 tests passed.
+- FastAPI: 22 tests passed.
+- Mobile domain/state/config: 10 tests passed.
 - TypeScript typecheck and ESLint passed.
 - Expo Android production export passed.
 - Docker API healthcheck reached `healthy`.
+- Render-like Docker smoke test passed on `$PORT`: health `200`, missing token `401`, valid token `200`.
 - Fixture evaluation generated JSON and Markdown reports.
 
 ## Acceptance checkpoints

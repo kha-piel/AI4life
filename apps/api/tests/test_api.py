@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 
 from fastapi.testclient import TestClient
 
@@ -22,6 +23,99 @@ def test_health(client: TestClient) -> None:
         "data": {"status": "ok", "provider": "fixture"},
         "error": None,
     }
+
+
+def test_health_rejects_unconfigured_real_provider() -> None:
+    settings = Settings(
+        vision_provider="openai",
+        allow_fixture_fallback=False,
+        openai_api_key=None,
+        rate_limit_requests=100,
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "provider_not_configured"
+
+
+def test_health_rejects_unconfigured_groq_provider() -> None:
+    settings = Settings(
+        vision_provider="groq",
+        allow_fixture_fallback=False,
+        groq_api_key=None,
+        rate_limit_requests=100,
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "provider_not_configured"
+
+
+def test_health_rejects_missing_public_access_configuration() -> None:
+    settings = Settings(
+        vision_provider="fixture",
+        require_app_auth=True,
+        app_access_token_hashes="",
+        rate_limit_requests=100,
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "app_auth_not_configured"
+
+
+def test_access_check_accepts_only_a_configured_invitation_code() -> None:
+    access_code = "friend-specific-test-token"
+    access_hash = hashlib.sha256(access_code.encode("utf-8")).hexdigest()
+    settings = Settings(
+        vision_provider="fixture",
+        require_app_auth=True,
+        app_access_token_hashes=access_hash,
+        rate_limit_requests=100,
+    )
+    with TestClient(create_app(settings)) as client:
+        missing = client.get("/v1/access-check")
+        invalid = client.get(
+            "/v1/access-check",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        valid = client.get(
+            "/v1/access-check",
+            headers={"Authorization": f"Bearer {access_code}"},
+        )
+
+    assert missing.status_code == 401
+    assert invalid.status_code == 401
+    assert valid.status_code == 200
+    assert valid.json()["data"] == {"status": "authorized"}
+
+
+def test_analysis_requires_access_code_on_public_deployment() -> None:
+    access_code = "friend-specific-test-token"
+    access_hash = hashlib.sha256(access_code.encode("utf-8")).hexdigest()
+    settings = Settings(
+        vision_provider="fixture",
+        require_app_auth=True,
+        app_access_token_hashes=access_hash,
+        rate_limit_requests=100,
+    )
+    with TestClient(create_app(settings)) as client:
+        denied = client.post(
+            "/v1/analyze-label",
+            files={"image": ("label.jpg", JPEG_BYTES, "image/jpeg")},
+        )
+        allowed = client.post(
+            "/v1/analyze-label",
+            files={"image": ("label.jpg", JPEG_BYTES, "image/jpeg")},
+            headers={"Authorization": f"Bearer {access_code}"},
+        )
+
+    assert denied.status_code == 401
+    assert denied.json()["error"]["code"] == "access_denied"
+    assert allowed.status_code == 200
 
 
 def test_analyze_label_returns_explicit_fixture_result(client: TestClient) -> None:

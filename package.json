@@ -6,9 +6,12 @@
     "apps/mobile"
   ],
   "scripts": {
-    "mobile": "npm --workspace @doi-mat-ai/mobile run start",
-    "mobile:android": "npm --workspace @doi-mat-ai/mobile run android",
+    "start": "expo start apps/mobile",
+    "mobile": "expo start apps/mobile",
+    "mobile:android": "expo start apps/mobile --android",
     "build:mobile": "npm --workspace @doi-mat-ai/mobile run export:android",
+    "build:apk": "npm --workspace @doi-mat-ai/mobile run build:apk:eas",
+    "build:production-apk": "npm --workspace @doi-mat-ai/mobile run build:production-apk:eas",
     "lint": "npm --workspace @doi-mat-ai/mobile run lint",
     "typecheck": "npm --workspace @doi-mat-ai/mobile run typecheck",
     "test:mobile": "npm --workspace @doi-mat-ai/mobile run test"

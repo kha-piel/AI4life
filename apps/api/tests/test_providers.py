@@ -1,11 +1,17 @@
 import asyncio
+import base64
+import json
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
+from app.config import Settings
 from app.errors import VisionProviderError
 from app.providers.fallback import FallbackVisionProvider
-from app.providers.openai import _extract_output_text
+from app.providers.factory import build_provider
+from app.providers.groq import GroqVisionProvider, _extract_message_content
+from app.providers.openai import OpenAIVisionProvider, _extract_output_text
 from app.schemas import LabelProviderResult
 from tests.conftest import JPEG_BYTES
 
@@ -30,6 +36,32 @@ class HangingProvider:
 
     async def analyze_scene(self, image_bytes, mime_type, locale):
         await asyncio.sleep(1)
+
+
+def test_real_mode_builds_openai_without_fixture_fallback() -> None:
+    provider = build_provider(
+        Settings(
+            vision_provider="openai",
+            allow_fixture_fallback=False,
+            openai_api_key="unit-test-placeholder",
+        )
+    )
+
+    assert type(provider) is OpenAIVisionProvider
+    assert provider.demo_mode is False
+
+
+def test_real_mode_builds_groq_without_fixture_fallback() -> None:
+    provider = build_provider(
+        Settings(
+            vision_provider="groq",
+            allow_fixture_fallback=False,
+            groq_api_key="unit-test-placeholder",
+        )
+    )
+
+    assert type(provider) is GroqVisionProvider
+    assert provider.demo_mode is False
 
 
 @pytest.mark.asyncio
@@ -71,6 +103,146 @@ def test_extract_output_text() -> None:
     )
 
     assert text == '{"ok":true}'
+
+
+def test_extract_groq_message_content() -> None:
+    text = _extract_message_content(
+        {"choices": [{"message": {"content": '{"ok":true}'}}]}
+    )
+
+    assert text == '{"ok":true}'
+
+
+@pytest.mark.asyncio
+async def test_groq_provider_sends_exact_image_in_json_mode(monkeypatch) -> None:
+    captured: dict = {}
+    model_result = {
+        "product_type": "food",
+        "product_name": "Nhãn từ ảnh camera",
+        "expiry_date": None,
+        "visible_instructions": [],
+        "warnings": [],
+        "unreadable_fields": ["expiry_date"],
+        "evidence_text": ["CAMERA LABEL"],
+        "confidence": "medium",
+        "speech_text": "Tôi đọc được nhãn từ ảnh camera.",
+    }
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs):
+            captured["timeout"] = kwargs["timeout"]
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def post(self, url, *, headers, json):
+            captured.update(url=url, headers=headers, body=json)
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": json_module.dumps(
+                                    model_result, ensure_ascii=False
+                                )
+                            }
+                        }
+                    ]
+                },
+            )
+
+    json_module = json
+    monkeypatch.setattr("app.providers.groq.httpx.AsyncClient", FakeAsyncClient)
+    provider = GroqVisionProvider(
+        api_key="unit-test-placeholder",
+        model="qwen/qwen3.8-27b",
+        base_url="https://api.groq.com/openai/v1",
+        timeout_seconds=30,
+    )
+
+    result = await provider.analyze_label(
+        JPEG_BYTES, "image/jpeg", None, "vi-VN"
+    )
+
+    body = captured["body"]
+    image_url = body["messages"][1]["content"][1]["image_url"]["url"]
+    assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert body["response_format"] == {"type": "json_object"}
+    assert "JSON phải khớp schema này" in body["messages"][0]["content"]
+    assert base64.b64decode(image_url.split(",", 1)[1]) == JPEG_BYTES
+    assert result.product_name == "Nhãn từ ảnh camera"
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_sends_exact_image_without_storage(monkeypatch) -> None:
+    captured: dict = {}
+    model_result = {
+        "product_type": "food",
+        "product_name": "Nhãn từ ảnh camera",
+        "expiry_date": None,
+        "visible_instructions": [],
+        "warnings": [],
+        "unreadable_fields": ["expiry_date"],
+        "evidence_text": ["CAMERA LABEL"],
+        "confidence": "medium",
+        "speech_text": "Tôi đọc được nhãn từ ảnh camera.",
+    }
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs):
+            captured["timeout"] = kwargs["timeout"]
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def post(self, url, *, headers, json):
+            captured.update(url=url, headers=headers, body=json)
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": json_module.dumps(
+                                        model_result, ensure_ascii=False
+                                    ),
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
+
+    json_module = json
+    monkeypatch.setattr("app.providers.openai.httpx.AsyncClient", FakeAsyncClient)
+    provider = OpenAIVisionProvider(
+        api_key="unit-test-placeholder",
+        model="gpt-6-astra",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=30,
+    )
+
+    result = await provider.analyze_label(
+        JPEG_BYTES, "image/jpeg", None, "vi-VN"
+    )
+
+    image_url = captured["body"]["input"][0]["content"][1]["image_url"]
+    assert captured["body"]["store"] is False
+    assert captured["body"]["text"]["format"]["strict"] is True
+    assert base64.b64decode(image_url.split(",", 1)[1]) == JPEG_BYTES
+    assert result.product_name == "Nhãn từ ảnh camera"
 
 
 def test_expiry_date_rejects_impossible_month() -> None:

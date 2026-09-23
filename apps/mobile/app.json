@@ -18,8 +18,8 @@
         {
           "cameraPermission": "Đôi Mắt AI cần camera để đọc nhãn và phân tích cảnh trước mặt."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
-

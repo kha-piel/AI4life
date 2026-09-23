@@ -9,3 +9,10 @@ class ApiError(Exception):
 class VisionProviderError(RuntimeError):
     """Raised when an external vision provider cannot return a valid result."""
 
+
+class VisionProviderConfigurationError(RuntimeError):
+    """Raised when the selected vision provider cannot be initialized safely."""
+
+
+class AppConfigurationError(RuntimeError):
+    """Raised when a public deployment is missing required access controls."""
