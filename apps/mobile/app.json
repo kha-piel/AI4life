@@ -10,13 +10,17 @@
       "permissions": [
         "CAMERA",
         "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
       [
         "expo-camera",
         {
-          "cameraPermission": "Đôi Mắt AI cần camera để đọc thông tin trên nhãn sản phẩm."
+          "cameraPermission": "Đôi Mắt AI cần camera để đọc thông tin trên nhãn sản phẩm.",
+          "recordAudioAndroid": false
         }
       ],
       "expo-secure-store"
