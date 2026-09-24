@@ -7,8 +7,9 @@ thị lực kém và người lớn tuổi.
   dinh dưỡng trong cùng một lượt.
 - **Nhiều góc nhãn:** chụp hoặc chọn từ thư viện tối đa 3 ảnh của cùng một sản
   phẩm rồi phân tích trong một request.
-- **Sàng lọc tiểu đường tùy chọn:** phân tích khẩu phần, tổng carbohydrate, đường,
-  chất xơ và thành phần nhìn thấy; từ chối kết luận khi thiếu bảng dinh dưỡng.
+- **Sàng lọc tiểu đường tích hợp:** nút “Bắt đầu đọc nhãn” tự động phân tích khẩu
+  phần, tổng carbohydrate, đường, chất xơ và thành phần nhìn thấy; từ chối kết luận
+  khi thiếu bảng dinh dưỡng.
 
 > Đánh giá sức khỏe chỉ hỗ trợ sàng lọc từ nhãn, không chẩn đoán, không hướng dẫn
 > insulin/thuốc và không thay thế bác sĩ hoặc chuyên gia dinh dưỡng.
@@ -21,7 +22,7 @@ thị lực kém và người lớn tuổi.
 - Live mode fail-closed: thiếu key hoặc external AI lỗi thì trả lỗi, không tráo dữ liệu mẫu.
 - Fixture chỉ dùng cho test/evaluation offline, không nằm trong đường chạy Android.
 - Backend tests: 35 test.
-- Mobile tests: 15 test.
+- Mobile tests: 16 test.
 - Evaluation: synthetic fixtures, chỉ chứng minh pipeline chứ không chứng minh
   accuracy ngoài đời.
 

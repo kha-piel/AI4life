@@ -27,11 +27,12 @@
 | TASK-12 | Camera-ready gate, bounded capture/API retries and focused label contract | TASK-04, TASK-07, TASK-11 | done; device test pending |
 | TASK-13 | Up to three camera/library images per analysis and AIVision launcher icon | TASK-12 | done; device test pending |
 | TASK-14 | One complete-label journey plus evidence-bound diabetes screening | TASK-13 | done; device test pending |
+| TASK-15 | Single diabetes-aware CTA, safe-area camera navigation and visual hierarchy refresh | TASK-14 | done; device test pending |
 
 ## Verification result
 
 - FastAPI: 35 tests passed.
-- Mobile domain/state/config: 15 tests passed.
+- Mobile domain/state/config: 16 tests passed.
 - TypeScript typecheck and ESLint passed.
 - Expo Android production export passed.
 - Docker API healthcheck reached `healthy`.

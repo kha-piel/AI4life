@@ -7,7 +7,7 @@
   động chọn tiểu đường, biết yếu tố nào cần cân nhắc.
 - **Hành vi đích:** chọn hoặc bỏ qua hồ sơ sức khỏe, chụp/chọn tối đa ba ảnh cùng
   sản phẩm, nhận kết quả tiếng Việt có bằng chứng hoặc yêu cầu chụp thêm.
-- **Chỉ số chính:** hoàn tất luồng chọn hồ sơ → chụp → nghe kết quả trên thiết bị thật.
+- **Chỉ số chính:** hoàn tất luồng bắt đầu → chụp → nghe kết quả trên thiết bị thật.
 - **Guardrail:** không biến NSX thành HSD, không suy đoán thành phần/liều dùng, không
   trả dữ liệu mẫu cho ảnh thật và không khẳng định thực phẩm an toàn khi thiếu
   khẩu phần hoặc tổng carbohydrate.
@@ -17,9 +17,9 @@
 ## 2. Quyết định sản phẩm
 
 Ứng dụng chỉ còn một chức năng: **Đọc và phân tích nhãn**. Các nút Hạn sử dụng,
-Tên sản phẩm, Thành phần và Hướng dẫn sử dụng được bỏ khỏi APK mới vì nội dung đã
-nằm trong kết quả đầy đủ. Trước khi mở camera, người dùng chọn **Không chọn bệnh
-nền** hoặc **Tiểu đường**; lựa chọn này chỉ tồn tại trong bộ nhớ của phiên app.
+Tên sản phẩm, Thành phần, Hướng dẫn sử dụng và lựa chọn bệnh nền được bỏ khỏi APK
+mới vì tạo thao tác trùng lặp. Nút **Bắt đầu đọc nhãn** luôn dùng profile cố định
+`requested_field=all` + `health_condition=diabetes`.
 
 Các nút lớn là baseline chính vì ổn định trong EAS APK, có thể được TalkBack đọc và
 không phụ thuộc speech recognizer trên từng máy. Điều khiển bằng giọng nói là bước
@@ -43,12 +43,12 @@ flowchart LR
     G[Groq Qwen Vision]
     T[TTS + haptics]
 
-    U -->|chọn hồ sơ tùy chọn| M
+    U -->|một CTA bắt đầu| M
     M --> C
     M --> P
     C -->|1-3 ảnh| M
     P -->|1-3 ảnh| M
-    M -->|images + all + health_condition?| A
+    M -->|images + all + diabetes| A
     S -->|Bearer token| A
     A --> V -->|ảnh + prompt có guardrail| G
     G -->|JSON có schema| V --> A
@@ -57,7 +57,7 @@ flowchart LR
 
 ## 4. Luồng chính
 
-1. Người dùng chọn không phân tích bệnh nền hoặc `health_condition=diabetes`.
+1. Người dùng nhấn một CTA “Bắt đầu đọc nhãn”; profile tiểu đường được áp dụng tự động.
 2. App yêu cầu chụp mặt trước, thành phần và bảng dinh dưỡng.
 3. Người dùng thêm tối đa ba ảnh bằng camera, thư viện hoặc kết hợp cả hai; các ảnh
    phải thuộc cùng một sản phẩm.
@@ -65,7 +65,7 @@ flowchart LR
    người dùng không cấp quyền camera.
 5. App chụp JPEG chất lượng 0.62; lỗi camera tạm thời được thử lại đúng một lần sau
    400 ms và khôi phục kết quả image picker nếu Android hủy Activity.
-6. App gửi multipart `images`, `requested_field=all`, `health_condition` tùy chọn,
+6. App gửi multipart `images`, `requested_field=all`, `health_condition=diabetes`,
    `locale` và Bearer invite code.
 7. API xác thực số ảnh, MIME, signature, kích thước và rate limit trước khi gọi model
    đúng một lần cho cả lượt.
@@ -86,7 +86,7 @@ Multipart:
 - `requested_field`: `expiry_date`, `product_name`, `ingredients`,
   `usage_instructions` hoặc `all`; APK mới chỉ gửi `all`, giá trị cũ được giữ để
   tương thích client cũ;
-- `health_condition`: tùy chọn `diabetes`; không gửi nếu người dùng không chọn;
+- `health_condition`: API để tùy chọn nhằm tương thích client cũ; APK mới luôn gửi `diabetes`;
 - `ocr_text`: tùy chọn;
 - `locale`: mặc định `vi-VN`.
 
@@ -164,6 +164,8 @@ thể, ảnh, invite code, OCR đầy đủ hoặc response model.
 - Ảnh tồn tại trong bộ nhớ của request, không có database hoặc object storage.
 - Bệnh nền chỉ nằm trong request hiện tại; mobile không lưu hồ sơ và backend không
   ghi giá trị bệnh nền vào log.
+- `react-native-safe-area-context` sở hữu phần inset; thanh Home nằm ngoài
+  `CameraView`, nên status bar Android hoặc camera lifecycle không thể che nút điều hướng.
 - Chữ trong ảnh được coi là untrusted data để giảm prompt injection.
 - Rate limit theo invite code hợp lệ, theo IP với request chưa xác thực.
 

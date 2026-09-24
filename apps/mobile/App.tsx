@@ -2,7 +2,6 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { ActionButton } from "./src/components/ActionButton";
 import { ResultCard } from "./src/components/ResultCard";
@@ -21,7 +21,7 @@ import {
   MAX_LABEL_IMAGES,
   mergeImageUris,
 } from "./src/domain/imageSelection";
-import type { HealthCondition, LabelTarget } from "./src/domain/types";
+import { DEFAULT_SCAN_PROFILE } from "./src/domain/scanProfile";
 import {
   analyzeLabel,
   ApiClientError,
@@ -66,70 +66,81 @@ async function takePictureReliably(camera: CameraView): Promise<string> {
 
 function HomeScreen({
   onStart,
-  healthCondition,
-  onHealthConditionChange,
   onChangeAccessCode,
 }: {
   onStart: () => void;
-  healthCondition: HealthCondition | null;
-  onHealthConditionChange: (condition: HealthCondition | null) => void;
   onChangeAccessCode?: () => void;
 }) {
   return (
-    <ScrollView
-      contentContainerStyle={styles.home}
-      accessibilityLabel="Màn hình đọc và phân tích nhãn"
-    >
-      <Text style={styles.eyebrow}>AIVISION</Text>
-      <Text style={styles.heading} accessibilityRole="header">
-        Đọc và phân tích nhãn
-      </Text>
-      <Text style={styles.lead}>
-        Chụp các mặt của cùng một sản phẩm. AIVision sẽ đọc tên, hạn sử dụng,
-        thành phần, hướng dẫn và bảng dinh dưỡng trong một lượt.
-      </Text>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+      <ScrollView
+        contentContainerStyle={styles.home}
+        accessibilityLabel="Màn hình chính AIVision"
+      >
+        <View style={styles.brandRow}>
+          <View style={styles.brandMark} accessibilityElementsHidden>
+            <Text style={styles.brandMarkText}>AI</Text>
+          </View>
+          <View style={styles.brandCopy}>
+            <Text style={styles.brandName}>AIVision</Text>
+            <Text style={styles.brandTagline}>Trợ lý đọc nhãn thông minh</Text>
+          </View>
+        </View>
 
-      <Text style={styles.sectionTitle}>Phân tích theo sức khỏe</Text>
-      <Text style={styles.sectionHint}>
-        Không bắt buộc. Thông tin này chỉ được gửi trong lượt phân tích hiện tại.
-      </Text>
-      <View style={styles.homeActions}>
-        <ActionButton
-          label={healthCondition === null ? "Không chọn bệnh nền — đã chọn" : "Không chọn bệnh nền"}
-          hint="Chỉ đọc toàn bộ thông tin trên nhãn"
-          onPress={() => onHealthConditionChange(null)}
-          variant={healthCondition === null ? "primary" : "secondary"}
-        />
-        <ActionButton
-          label={healthCondition === "diabetes" ? "Tiểu đường — đã chọn" : "Tiểu đường"}
-          hint="Phân tích carbohydrate, đường, chất xơ và thành phần nhìn thấy"
-          onPress={() => onHealthConditionChange("diabetes")}
-          variant={healthCondition === "diabetes" ? "primary" : "secondary"}
-        />
-        <ActionButton
-          label="Bắt đầu đọc nhãn"
-          hint="Mở camera để chụp hoặc chọn ảnh sản phẩm"
-          onPress={onStart}
-        />
-      </View>
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>ĐỌC NHÃN DỄ DÀNG HƠN</Text>
+          <Text style={styles.heading} accessibilityRole="header">
+            Hiểu sản phẩm.{"\n"}Chọn an tâm hơn.
+          </Text>
+          <Text style={styles.lead}>
+            Chụp tối đa ba mặt nhãn. AIVision đọc thông tin quan trọng và phân
+            tích dinh dưỡng dành cho người tiểu đường.
+          </Text>
+        </View>
 
-      <View style={styles.safetyCard}>
-        <Text style={styles.safetyTitle}>Hỗ trợ sàng lọc, không chẩn đoán</Text>
-        <Text style={styles.safetyText}>
-          Kết quả sức khỏe chỉ dựa trên nhãn nhìn thấy và không thay thế bác sĩ.
-          Để phân tích tiểu đường, hãy chụp rõ cả bảng dinh dưỡng và thành phần.
-        </Text>
-      </View>
+        <View style={styles.featureCard}>
+          <View style={styles.featureBadge}>
+            <Text style={styles.featureBadgeText}>TIỂU ĐƯỜNG</Text>
+          </View>
+          <Text style={styles.featureTitle}>Một lần quét, đầy đủ thông tin</Text>
+          <View style={styles.featureList}>
+            <Text style={styles.featureItem}>✓ Tên, hạn sử dụng và hướng dẫn</Text>
+            <Text style={styles.featureItem}>✓ Thành phần và bảng dinh dưỡng</Text>
+            <Text style={styles.featureItem}>✓ Gợi ý cân nhắc, hạn chế hoặc tránh</Text>
+          </View>
+          <ActionButton
+            label="Bắt đầu đọc nhãn"
+            hint="Mở camera và tự động phân tích cho người tiểu đường"
+            onPress={onStart}
+            style={styles.primaryCta}
+          />
+          <Text style={styles.privacyNote}>
+            Hồ sơ tiểu đường chỉ được gửi trong lượt phân tích, không lưu trên máy chủ.
+          </Text>
+        </View>
 
-      {onChangeAccessCode ? (
-        <ActionButton
-          label="Đổi mã truy cập"
-          hint="Xóa mã hiện tại và nhập mã mời khác"
-          onPress={onChangeAccessCode}
-          variant="secondary"
-        />
-      ) : null}
-    </ScrollView>
+        <View style={styles.safetyCard}>
+          <Text style={styles.safetyIcon} accessibilityElementsHidden>!</Text>
+          <View style={styles.safetyCopy}>
+            <Text style={styles.safetyTitle}>Hỗ trợ sàng lọc, không chẩn đoán</Text>
+            <Text style={styles.safetyText}>
+              Hãy chụp rõ bảng dinh dưỡng và thành phần. Kết quả không thay thế
+              bác sĩ hoặc chuyên gia dinh dưỡng.
+            </Text>
+          </View>
+        </View>
+
+        {onChangeAccessCode ? (
+          <ActionButton
+            label="Đổi mã truy cập"
+            hint="Xóa mã hiện tại và nhập mã mời khác"
+            onPress={onChangeAccessCode}
+            variant="secondary"
+            style={styles.tertiaryAction}
+          />
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -207,12 +218,8 @@ function AccessSetupScreen({ onAuthorized }: { onAuthorized: () => void }) {
 }
 
 function LabelCameraScreen({
-  target,
-  healthCondition,
   onBack,
 }: {
-  target: LabelTarget;
-  healthCondition: HealthCondition | null;
   onBack: () => void;
 }) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -223,7 +230,7 @@ function LabelCameraScreen({
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isPicking, setIsPicking] = useState(false);
   const [state, dispatch] = useReducer(visionReducer, initialVisionState);
-  const option = getLabelTargetOption(target);
+  const option = getLabelTargetOption(DEFAULT_SCAN_PROFILE.requestedField);
 
   const reportError = useCallback(async (error: unknown) => {
     const message =
@@ -319,9 +326,9 @@ function LabelCameraScreen({
     try {
       const result = await analyzeLabel(
         selectedImages,
-        target,
+        DEFAULT_SCAN_PROFILE.requestedField,
         undefined,
-        healthCondition ?? undefined,
+        DEFAULT_SCAN_PROFILE.healthCondition,
       );
       dispatch({
         type: "SUCCESS",
@@ -339,7 +346,7 @@ function LabelCameraScreen({
     } finally {
       busyRef.current = false;
     }
-  }, [healthCondition, reportError, selectedImages, target]);
+  }, [reportError, selectedImages]);
 
   useEffect(() => {
     let active = true;
@@ -399,23 +406,30 @@ function LabelCameraScreen({
               : "Bạn có thể cho phép camera hoặc chọn ảnh từ thư viện.");
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       <StatusBar style="light" />
       <View style={styles.topBar}>
         <ActionButton
-          label="Quay lại"
-          hint="Chọn mục thông tin khác"
+          label="‹  Home"
+          hint="Quay về màn hình chính"
           onPress={goBack}
           variant="secondary"
           style={styles.backButton}
         />
-        <Text style={styles.modeTitle} accessibilityRole="header">
-          {option.label}
-        </Text>
+        <View style={styles.cameraTitleGroup}>
+          <Text style={styles.modeTitle} accessibilityRole="header">
+            Quét nhãn
+          </Text>
+          <Text style={styles.modeSubtitle}>Phân tích tiểu đường</Text>
+        </View>
+        <View style={styles.stepBadge}>
+          <Text style={styles.stepBadgeText}>{selectedImages.length}/3</Text>
+        </View>
       </View>
 
       {permission?.granted ? (
-        <View style={styles.cameraFrame}>
+        <View style={styles.cameraShell}>
+          <View style={styles.cameraFrame}>
           <CameraView
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
@@ -433,6 +447,10 @@ function LabelCameraScreen({
             importantForAccessibility="no-hide-descendants"
           />
           <View pointerEvents="none" style={styles.reticle} />
+          <View pointerEvents="none" style={styles.cameraHintBadge}>
+            <Text style={styles.cameraHintText}>Căn nhãn trong khung</Text>
+          </View>
+          </View>
         </View>
       ) : (
         <View style={styles.cameraPlaceholder}>
@@ -455,9 +473,15 @@ function LabelCameraScreen({
         style={styles.controlPanel}
         contentContainerStyle={styles.controlPanelContent}
       >
-        <Text style={styles.status} accessibilityLiveRegion="assertive">
-          {statusText}
-        </Text>
+        <View style={styles.statusCard}>
+          <View style={styles.statusDot} />
+          <Text
+            style={[styles.status, styles.statusInCard]}
+            accessibilityLiveRegion="assertive"
+          >
+            {statusText}
+          </Text>
+        </View>
 
         {selectedImages.length > 0 ? (
           <View style={styles.previewRow} accessibilityLabel="Các ảnh đã chọn">
@@ -531,9 +555,8 @@ function LabelCameraScreen({
   );
 }
 
-export default function App() {
-  const [selectedTarget, setSelectedTarget] = useState<LabelTarget | null>(null);
-  const [healthCondition, setHealthCondition] = useState<HealthCondition | null>(null);
+function AIVisionApp() {
+  const [isScanning, setIsScanning] = useState(false);
   const [accessState, setAccessState] = useState<
     "loading" | "required" | "authorized"
   >(APP_AUTH_REQUIRED ? "loading" : "authorized");
@@ -567,18 +590,16 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.app}>
+    <View style={styles.app}>
       <StatusBar style="light" />
-      {selectedTarget === null ? (
+      {!isScanning ? (
         <HomeScreen
-          onStart={() => setSelectedTarget("all")}
-          healthCondition={healthCondition}
-          onHealthConditionChange={setHealthCondition}
+          onStart={() => setIsScanning(true)}
           onChangeAccessCode={
             APP_AUTH_REQUIRED
               ? () => {
                   void clearAccessToken().then(() => {
-                    setSelectedTarget(null);
+                    setIsScanning(false);
                     setAccessState("required");
                   });
                 }
@@ -587,12 +608,18 @@ export default function App() {
         />
       ) : (
         <LabelCameraScreen
-          target={selectedTarget}
-          healthCondition={healthCondition}
-          onBack={() => setSelectedTarget(null)}
+          onBack={() => setIsScanning(false)}
         />
       )}
-    </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AIVisionApp />
+    </SafeAreaProvider>
   );
 }
 
@@ -609,31 +636,98 @@ const styles = StyleSheet.create({
   },
   home: {
     flexGrow: 1,
-    padding: 24,
-    justifyContent: "center",
-    gap: 22,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
+    gap: 20,
     backgroundColor: "#06121f",
   },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  brandMark: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#68b7ff",
+  },
+  brandMarkText: { color: "#06121f", fontSize: 19, fontWeight: "900" },
+  brandCopy: { flex: 1 },
+  brandName: { color: "#ffffff", fontSize: 22, fontWeight: "900" },
+  brandTagline: { color: "#91a8bf", fontSize: 14, marginTop: 1 },
+  hero: { gap: 12, paddingTop: 12 },
   eyebrow: {
-    color: "#68b7ff",
+    color: "#7bc2ff",
     fontWeight: "900",
-    letterSpacing: 1.5,
-    fontSize: 15,
+    letterSpacing: 1.8,
+    fontSize: 13,
   },
-  heading: { color: "#ffffff", fontSize: 36, fontWeight: "900" },
-  lead: { color: "#dcecff", fontSize: 21, lineHeight: 31 },
-  homeActions: { gap: 14, marginVertical: 8 },
-  sectionTitle: { color: "#ffffff", fontSize: 22, fontWeight: "900" },
-  sectionHint: { color: "#c6dff7", fontSize: 16, lineHeight: 23 },
-  safetyCard: {
-    borderLeftWidth: 5,
-    borderLeftColor: "#ffd400",
+  heading: {
+    color: "#ffffff",
+    fontSize: 39,
+    lineHeight: 45,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  lead: { color: "#c6dff7", fontSize: 18, lineHeight: 28 },
+  featureCard: {
+    borderRadius: 24,
+    padding: 20,
+    gap: 14,
     backgroundColor: "#0d2845",
-    padding: 18,
-    gap: 8,
+    borderWidth: 1,
+    borderColor: "#214f7e",
   },
-  safetyTitle: { color: "#ffe476", fontWeight: "900", fontSize: 20 },
-  safetyText: { color: "#ffffff", fontSize: 17, lineHeight: 25 },
+  featureBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    backgroundColor: "#173d63",
+  },
+  featureBadgeText: {
+    color: "#8dcbff",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+  featureTitle: { color: "#ffffff", fontSize: 24, fontWeight: "900" },
+  featureList: { gap: 9 },
+  featureItem: { color: "#e5f2ff", fontSize: 16, lineHeight: 23 },
+  primaryCta: { minHeight: 64, marginTop: 4 },
+  privacyNote: {
+    color: "#91a8bf",
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  safetyCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderRadius: 18,
+    backgroundColor: "#10253a",
+    padding: 16,
+    gap: 13,
+  },
+  safetyIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#ffd400",
+    color: "#06121f",
+    fontWeight: "900",
+    textAlign: "center",
+    lineHeight: 28,
+  },
+  safetyCopy: { flex: 1, gap: 5 },
+  safetyTitle: { color: "#ffffff", fontWeight: "900", fontSize: 17 },
+  safetyText: { color: "#b9d0e5", fontSize: 15, lineHeight: 22 },
+  tertiaryAction: { minHeight: 50, backgroundColor: "transparent" },
   accessInput: {
     minHeight: 58,
     borderWidth: 2,
@@ -654,18 +748,45 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 12,
+    minHeight: 70,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: "#06121f",
+    borderBottomWidth: 1,
+    borderBottomColor: "#17324c",
   },
-  backButton: { minHeight: 48, paddingHorizontal: 14 },
-  modeTitle: { color: "#ffffff", fontSize: 24, fontWeight: "900", flex: 1 },
+  backButton: {
+    minHeight: 46,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  cameraTitleGroup: { flex: 1 },
+  modeTitle: { color: "#ffffff", fontSize: 20, fontWeight: "900" },
+  modeSubtitle: { color: "#91a8bf", fontSize: 13, marginTop: 2 },
+  stepBadge: {
+    minWidth: 42,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#143c68",
+  },
+  stepBadgeText: { color: "#ffffff", fontSize: 14, fontWeight: "900" },
+  cameraShell: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    backgroundColor: "#06121f",
+  },
   cameraFrame: {
-    flex: 1,
-    minHeight: 260,
+    height: 330,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#214f7e",
   },
   cameraPlaceholder: {
     flex: 1,
@@ -678,21 +799,48 @@ const styles = StyleSheet.create({
   },
   cameraPlaceholderTitle: { color: "#ffffff", fontSize: 21, fontWeight: "800" },
   reticle: {
-    width: "82%",
-    height: "62%",
-    borderWidth: 4,
+    width: "84%",
+    height: "60%",
+    borderWidth: 3,
     borderColor: "#ffd400",
-    borderRadius: 24,
+    borderRadius: 20,
   },
+  cameraHintBadge: {
+    position: "absolute",
+    bottom: 16,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "rgba(6, 18, 31, 0.82)",
+  },
+  cameraHintText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
   controlPanel: {
-    maxHeight: "64%",
+    flex: 1,
     backgroundColor: "#06121f",
   },
   controlPanelContent: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 30,
     gap: 12,
   },
-  status: { color: "#ffffff", fontSize: 18, lineHeight: 26, textAlign: "center" },
+  statusCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    borderRadius: 16,
+    padding: 13,
+    backgroundColor: "#0d2845",
+  },
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    marginTop: 7,
+    backgroundColor: "#68b7ff",
+  },
+  status: { color: "#e5f2ff", fontSize: 16, lineHeight: 23 },
+  statusInCard: { flex: 1 },
   previewRow: {
     flexDirection: "row",
     justifyContent: "center",

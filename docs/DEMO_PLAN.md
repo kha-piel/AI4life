@@ -30,7 +30,7 @@ kết luận thận trọng có bằng chứng trong dưới 90 giây.
 ### Cảnh 2: Đọc và phân tích cho người tiểu đường — 45 giây
 
 1. TalkBack đọc màn hình “Đọc và phân tích nhãn”.
-2. Chọn “Tiểu đường”.
+2. Nhấn “Bắt đầu đọc nhãn”; phân tích tiểu đường được bật tự động.
 3. Chụp mặt trước, thành phần và bảng dinh dưỡng của cùng sản phẩm.
 4. Kiểm tra “Đã chọn 3/3 ảnh”, rồi nhấn “Phân tích 3 ảnh”.
 5. App đọc thông tin nhãn, verdict và lý do có con số trên nhãn.
