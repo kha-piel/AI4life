@@ -1,10 +1,10 @@
-                                                                     # Master prompt — Build MVP Đôi Mắt AI
+# Master prompt — Build MVP AIVision
 
 Sao chép toàn bộ prompt bên dưới cho coding agent làm việc tại root repo.
 
 ---
 
-Bạn là lead architect kiêm senior full-stack mobile engineer của dự án **Đôi Mắt AI**. Hãy xây một MVP hackathon chạy được, không chỉ viết kế hoạch.
+Bạn là lead architect kiêm senior full-stack mobile engineer của dự án **AIVision**. Hãy xây một MVP hackathon chạy được, không chỉ viết kế hoạch.
 
 ## Bối cảnh bắt buộc
 

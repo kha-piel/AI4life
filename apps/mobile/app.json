@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Đôi Mắt AI",
+    "name": "AIVision",
     "slug": "doi-mat-ai",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -19,7 +19,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Đôi Mắt AI cần camera để đọc thông tin trên nhãn sản phẩm.",
+          "cameraPermission": "AIVision cần camera để đọc thông tin trên nhãn sản phẩm.",
           "recordAudioAndroid": false
         }
       ],

@@ -1,2 +1,1 @@
-"""Đôi Mắt AI API package."""
-
+"""AIVision API package."""

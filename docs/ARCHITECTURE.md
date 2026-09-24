@@ -1,4 +1,4 @@
-# Kiến trúc MVP — Đôi Mắt AI đọc nhãn theo mục tiêu
+# Kiến trúc MVP — AIVision đọc nhãn theo mục tiêu
 
 ## 1. Problem brief
 

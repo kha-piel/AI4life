@@ -33,9 +33,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app = FastAPI(
-        title="Đôi Mắt AI API",
+        title="AIVision API",
         version="0.1.0",
-        description="Ephemeral image analysis API for the AI4Life hackathon MVP.",
+        description="Ephemeral image analysis API for the AIVision MVP.",
     )
     app.dependency_overrides[get_settings] = lambda: active_settings
 

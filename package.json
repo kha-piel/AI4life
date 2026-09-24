@@ -1,5 +1,5 @@
 {
-  "name": "doi-mat-ai",
+  "name": "aivision",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
@@ -9,12 +9,12 @@
     "start": "expo start apps/mobile",
     "mobile": "expo start apps/mobile",
     "mobile:android": "expo start apps/mobile --android",
-    "build:mobile": "npm --workspace @doi-mat-ai/mobile run export:android",
-    "build:apk": "npm --workspace @doi-mat-ai/mobile run build:apk:eas",
-    "build:production-apk": "npm --workspace @doi-mat-ai/mobile run build:production-apk:eas",
-    "lint": "npm --workspace @doi-mat-ai/mobile run lint",
-    "typecheck": "npm --workspace @doi-mat-ai/mobile run typecheck",
-    "test:mobile": "npm --workspace @doi-mat-ai/mobile run test"
+    "build:mobile": "npm --workspace @aivision/mobile run export:android",
+    "build:apk": "npm --workspace @aivision/mobile run build:apk:eas",
+    "build:production-apk": "npm --workspace @aivision/mobile run build:production-apk:eas",
+    "lint": "npm --workspace @aivision/mobile run lint",
+    "typecheck": "npm --workspace @aivision/mobile run typecheck",
+    "test:mobile": "npm --workspace @aivision/mobile run test"
   },
   "engines": {
     "node": ">=22"

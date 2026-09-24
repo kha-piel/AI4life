@@ -1,6 +1,6 @@
-# Đôi Mắt AI
+# AIVision
 
-MVP AI4Life biến smartphone thành trợ lý thị giác cho người khiếm thị, người
+MVP AIVision biến smartphone thành trợ lý thị giác cho người khiếm thị, người
 thị lực kém và người lớn tuổi.
 
 - **Đọc đúng mục cần thiết:** chọn hạn sử dụng, tên sản phẩm, thành phần, hướng
@@ -19,7 +19,7 @@ thị lực kém và người lớn tuổi.
 - Live mode fail-closed: thiếu key hoặc external AI lỗi thì trả lỗi, không tráo dữ liệu mẫu.
 - Fixture chỉ dùng cho test/evaluation offline, không nằm trong đường chạy Android.
 - Backend tests: 25 test.
-- Mobile tests: 10 test.
+- Mobile tests: 13 test.
 - Evaluation: synthetic fixtures, chỉ chứng minh pipeline chứ không chứng minh
   accuracy ngoài đời.
 

@@ -49,7 +49,7 @@ function proxyApiRequest(request, response) {
 }
 
 config.server.enhanceMiddleware = (metroMiddleware) =>
-  function ai4lifeDevMiddleware(request, response, next) {
+  function aivisionDevMiddleware(request, response, next) {
     if (
       request.url === API_PREFIX ||
       request.url.startsWith(`${API_PREFIX}/`)

@@ -1,4 +1,4 @@
-# Kịch bản demo Đôi Mắt AI
+# Kịch bản demo AIVision
 
 ## 1. Giả thuyết demo
 
@@ -27,7 +27,7 @@ ngắn có bằng chứng trong dưới 60 giây.
 ### Cảnh 1: Nỗi đau — 10 giây
 
 “Người thị lực kém thường chỉ cần biết một thông tin, nhưng ứng dụng lại đọc cả
-đoạn dài. Đôi Mắt AI cho chọn mục trước rồi chỉ đọc đúng phần cần thiết.”
+đoạn dài. AIVision cho chọn mục trước rồi chỉ đọc đúng phần cần thiết.”
 
 ### Cảnh 2: Hạn sử dụng — 25 giây
 

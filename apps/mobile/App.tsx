@@ -73,7 +73,7 @@ function HomeScreen({
       contentContainerStyle={styles.home}
       accessibilityLabel="Màn hình chọn thông tin cần đọc"
     >
-      <Text style={styles.eyebrow}>ĐÔI MẮT AI</Text>
+      <Text style={styles.eyebrow}>AIVISION</Text>
       <Text style={styles.heading} accessibilityRole="header">
         Bạn muốn đọc gì?
       </Text>

@@ -16,6 +16,11 @@ chạy Metro hoặc Docker.
 
 ## 2. Kiến trúc
 
+Tên sản phẩm hiển thị là **AIVision**. Các định danh đã phát hành như Android
+package `vn.ai4life.doimataimvp`, EAS project ID/slug và URL Render được giữ ổn
+định để APK mới cập nhật đè bản cũ, giữ SecureStore và không làm đứt kết nối
+backend; chúng không phải tên hiển thị trên màn hình Android.
+
 ```text
 Android APK
   ├─ EXPO_PUBLIC_API_BASE_URL (URL công khai, không phải secret)

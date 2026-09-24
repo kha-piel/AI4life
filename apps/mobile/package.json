@@ -1,5 +1,5 @@
 {
-  "name": "@doi-mat-ai/mobile",
+  "name": "@aivision/mobile",
   "version": "0.1.0",
   "private": true,
   "main": "index.ts",
@@ -7,7 +7,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "web": "expo start --web",
-    "export:android": "expo export --platform android --output-dir /tmp/doi-mat-ai-export",
+    "export:android": "expo export --platform android --output-dir /tmp/aivision-export",
     "build:apk:eas": "npx eas-cli@24.7.0 build --platform android --profile preview",
     "build:production-apk:eas": "npx eas-cli@24.7.0 build --platform android --profile production-apk",
     "lint": "eslint .",

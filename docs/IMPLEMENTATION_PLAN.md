@@ -1,4 +1,4 @@
-# Implementation plan — MVP Đôi Mắt AI
+# Implementation plan — MVP AIVision
 
 ## Scope lock
 
@@ -29,7 +29,7 @@
 ## Verification result
 
 - FastAPI: 25 tests passed.
-- Mobile domain/state/config: 10 tests passed.
+- Mobile domain/state/config: 13 tests passed.
 - TypeScript typecheck and ESLint passed.
 - Expo Android production export passed.
 - Docker API healthcheck reached `healthy`.

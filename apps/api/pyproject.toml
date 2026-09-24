@@ -3,9 +3,9 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "doi-mat-ai-api"
+name = "aivision-api"
 version = "0.1.0"
-description = "FastAPI backend for the Doi Mat AI hackathon MVP"
+description = "FastAPI backend for the AIVision MVP"
 requires-python = ">=3.12,<3.15"
 dependencies = [
   "fastapi==0.141.1",
@@ -29,4 +29,3 @@ packages = ["app"]
 addopts = "-q"
 testpaths = ["tests"]
 asyncio_mode = "auto"
-
