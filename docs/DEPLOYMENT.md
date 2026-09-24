@@ -145,7 +145,7 @@ Google Play sử dụng profile `production` mặc định để tạo AAB, khô
 2. Nhập sai mã: phải báo mã không hợp lệ.
 3. Nhập đúng mã: app nói “Đã kết nối máy chủ an toàn”.
 4. Lần lượt chọn **Hạn sử dụng**, **Tên sản phẩm**, **Thành phần** và **Hướng
-   dẫn sử dụng**, rồi chụp đúng vùng chữ. Kết quả phải chỉ đọc mục đã chọn,
+   dẫn sử dụng**, rồi thử một ảnh, ba ảnh và chọn ảnh từ thư viện. Kết quả phải chỉ đọc mục đã chọn,
    có `provider=groq`, `demo_mode=false` và nội dung khớp ảnh.
 5. Tắt Docker Desktop/máy phát triển rồi thử lại: app vẫn phải hoạt động.
 6. Thu hồi hash của mã vừa thử trên Render: lần gọi tiếp theo phải trả `401`.

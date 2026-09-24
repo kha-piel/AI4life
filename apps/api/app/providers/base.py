@@ -2,6 +2,8 @@ from typing import Protocol
 
 from app.schemas import LabelProviderResult, LabelTarget
 
+VisionImage = tuple[bytes, str]
+
 
 class VisionProvider(Protocol):
     name: str
@@ -9,8 +11,7 @@ class VisionProvider(Protocol):
 
     async def analyze_label(
         self,
-        image_bytes: bytes,
-        mime_type: str,
+        images: list[VisionImage],
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,

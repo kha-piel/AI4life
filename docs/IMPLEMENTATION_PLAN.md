@@ -24,12 +24,13 @@
 | TASK-09 | Deterministic evaluation dataset and report command | TASK-03 | done |
 | TASK-10 | Docker, README commands, demo verification | TASK-04, TASK-08, TASK-09 | done |
 | TASK-11 | EAS APK, Render HTTPS and revocable invite-code access | TASK-04, TASK-08, TASK-10 | done |
-| TASK-12 | Camera-ready gate, bounded capture/API retries and focused label contract | TASK-04, TASK-07, TASK-11 | done; new APK device test pending |
+| TASK-12 | Camera-ready gate, bounded capture/API retries and focused label contract | TASK-04, TASK-07, TASK-11 | done; device test pending |
+| TASK-13 | Up to three camera/library images per analysis and AIVision launcher icon | TASK-12 | done; device test pending |
 
 ## Verification result
 
-- FastAPI: 25 tests passed.
-- Mobile domain/state/config: 13 tests passed.
+- FastAPI: 29 tests passed.
+- Mobile domain/state/config: 15 tests passed.
 - TypeScript typecheck and ESLint passed.
 - Expo Android production export passed.
 - Docker API healthcheck reached `healthy`.
@@ -39,7 +40,8 @@
 ## Acceptance checkpoints
 
 1. Fixture mode runs without an external AI key and is visibly labeled.
-2. Every label target traverses selection → camera → API → validated response → Vietnamese speech.
+2. Every label target traverses selection → camera/library queue → API → validated
+   response → Vietnamese speech.
 3. External provider timeout or malformed output becomes a controlled fallback or error.
 4. Uploads with unsupported type, spoofed signature, empty body, or excess size are rejected.
 5. Core TypeScript and Python tests pass.

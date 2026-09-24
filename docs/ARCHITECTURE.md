@@ -5,8 +5,8 @@
 - **Người dùng:** người khiếm thị, người thị lực kém và người lớn tuổi dùng Android.
 - **Công việc cần làm:** nghe đúng một thông tin trên nhãn mà không phải nghe toàn
   bộ nội dung dài.
-- **Hành vi đích:** chọn mục cần đọc, chụp một ảnh, nhận một câu trả lời tiếng Việt
-  ngắn có bằng chứng hoặc yêu cầu chụp lại.
+- **Hành vi đích:** chọn mục cần đọc, chụp hoặc chọn tối đa ba ảnh của cùng một
+  sản phẩm, nhận một câu trả lời tiếng Việt ngắn có bằng chứng hoặc yêu cầu chụp lại.
 - **Chỉ số chính:** hoàn tất luồng chọn mục → chụp → nghe kết quả trên thiết bị thật.
 - **Guardrail:** không biến NSX thành HSD, không suy đoán thành phần/liều dùng, không
   trả dữ liệu mẫu cho ảnh thật.
@@ -38,6 +38,7 @@ flowchart LR
     U[Người dùng<br/>TalkBack + nút lớn]
     M[Expo Android APK]
     C[expo-camera]
+    P[expo-image-picker]
     S[SecureStore<br/>invite code]
     A[FastAPI HTTPS<br/>Render]
     V[VisionProvider]
@@ -46,7 +47,10 @@ flowchart LR
 
     U -->|chọn requested_field| M
     M --> C
-    C -->|JPEG + requested_field| A
+    M --> P
+    C -->|1-3 ảnh| M
+    P -->|1-3 ảnh| M
+    M -->|multipart images + requested_field| A
     S -->|Bearer token| A
     A --> V -->|ảnh + prompt tập trung| G
     G -->|JSON có schema| V --> A
@@ -57,13 +61,18 @@ flowchart LR
 
 1. Người dùng chọn một `requested_field`.
 2. App hiển thị hướng dẫn căn đúng vùng chữ cho mục đó.
-3. Nút chụp bị khóa cho tới khi `onCameraReady` chạy.
-4. App chụp JPEG chất lượng 0.62; lỗi camera tạm thời được thử lại đúng một lần sau
-   400 ms.
-5. App gửi multipart `image`, `requested_field`, `locale` và Bearer invite code.
-6. API xác thực mã, MIME, signature, kích thước và rate limit trước khi gọi model.
-7. Prompt yêu cầu model chỉ trả mục đã chọn; Pydantic từ chối JSON sai schema.
-8. App đọc `speech_text`, hiển thị bằng chứng và cho phép chụp lại cùng mục.
+3. Người dùng thêm tối đa ba ảnh bằng camera, thư viện hoặc kết hợp cả hai; các ảnh
+   phải thuộc cùng một sản phẩm.
+4. Nút chụp bị khóa cho tới khi `onCameraReady` chạy; thư viện vẫn dùng được khi
+   người dùng không cấp quyền camera.
+5. App chụp JPEG chất lượng 0.62; lỗi camera tạm thời được thử lại đúng một lần sau
+   400 ms và khôi phục kết quả image picker nếu Android hủy Activity.
+6. App gửi multipart `images`, `requested_field`, `locale` và Bearer invite code.
+7. API xác thực số ảnh, MIME, signature, kích thước và rate limit trước khi gọi model
+   đúng một lần cho cả lượt.
+8. Prompt yêu cầu model kết hợp bằng chứng nhưng abstain khi các ảnh mâu thuẫn;
+   Pydantic từ chối JSON sai schema.
+9. App đọc `speech_text`, hiển thị số ảnh/bằng chứng và cho phép bắt đầu lượt mới.
 
 ## 5. API contract
 
@@ -71,7 +80,8 @@ flowchart LR
 
 Multipart:
 
-- `image`: JPEG/PNG/WEBP, tối đa 5 MB;
+- `images`: lặp lại 1-3 lần, JPEG/PNG/WEBP, tối đa 5 MB mỗi ảnh và 12 MB tổng;
+- `image`: một ảnh legacy để tương thích client cũ;
 - `requested_field`: `expiry_date`, `product_name`, `ingredients`,
   `usage_instructions` hoặc `all`; mặc định `all` để tương thích client cũ;
 - `ocr_text`: tùy chọn;
@@ -84,6 +94,7 @@ Response ví dụ:
   "success": true,
   "data": {
     "requested_field": "expiry_date",
+    "image_count": 2,
     "product_type": null,
     "product_name": null,
     "expiry_date": "2027-10-15",
@@ -109,6 +120,8 @@ Response ví dụ:
 | Điểm lỗi | Hành vi |
 |---|---|
 | Camera chưa sẵn sàng | Khóa nút chụp và hiển thị “Đang khởi động camera” |
+| Không cấp quyền camera | Vẫn cho chọn nhiều ảnh bằng system photo picker |
+| Không có ảnh hoặc quá 3 ảnh | Từ chối deterministic trước khi gọi provider |
 | Capture tạm lỗi | Thử lại một lần, sau đó báo lỗi rõ ràng |
 | Render cold-start/mạng lỗi | Timeout 90 giây, retry một lần với body mới |
 | HTTP 502/503/504 | Retry một lần; không retry 401/413/422/429 |
@@ -116,7 +129,7 @@ Response ví dụ:
 | Provider trả JSON sai | Log loại lỗi, không log ảnh/OCR/model output; trả `provider_failure` |
 | Mục không đọc rõ | Model phải abstain, đưa field vào `unreadable_fields` |
 
-Backend log `request_id`, `requested_field`, provider, latency và loại lỗi. Backend
+Backend log `request_id`, `requested_field`, `image_count`, provider, latency và loại lỗi. Backend
 không log ảnh, invite code, OCR đầy đủ hoặc response model.
 
 ## 7. Security và privacy
@@ -138,8 +151,8 @@ always-on, managed rate limit và monitoring.
 
 ## 9. Evaluation và release gate
 
-- Unit/API tests kiểm tra từng `requested_field`, invalid target, auth, upload và
-  provider contract.
+- Unit/API tests kiểm tra từng `requested_field`, 1-3 ảnh, giới hạn ảnh, invalid
+  target, auth, upload và provider contract.
 - Fixture evaluation chỉ gồm label targets; không còn scene/hazard cases.
 - Release APK chỉ đạt khi thử trên Android thật với ít nhất: HSD rõ, HSD mờ, tên
   sản phẩm, thành phần và hướng dẫn; kết quả phải liên quan ảnh, `provider=groq`,

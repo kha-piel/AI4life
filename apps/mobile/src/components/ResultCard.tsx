@@ -25,6 +25,7 @@ export function ResultCard({ result, onReadAgain, onRetry }: Props) {
       </Text>
 
       <Text style={styles.body}>{result.speech_text}</Text>
+      <Text style={styles.note}>Đã phân tích {result.image_count} ảnh.</Text>
 
       {result.requested_field === "all" ? (
         <>
@@ -71,8 +72,8 @@ export function ResultCard({ result, onReadAgain, onRetry }: Props) {
           style={styles.action}
         />
         <ActionButton
-          label="Chụp lại"
-          hint="Quay về camera để thử lại"
+          label="Quét lượt mới"
+          hint="Xóa ảnh hiện tại và bắt đầu lượt đọc mới"
           onPress={onRetry}
           variant="secondary"
           style={styles.action}

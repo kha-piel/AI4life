@@ -38,7 +38,7 @@ Hoàn thành một vertical slice thật cho luồng này. Ưu tiên độ tin c
 - Monorepo dùng npm workspaces.
 - `apps/mobile`: React Native, Expo development build, TypeScript.
 - `apps/api`: Python 3.12+, FastAPI, Pydantic, pytest.
-- Mobile: `expo-camera`, `expo-speech`, `expo-haptics`.
+- Mobile: `expo-camera`, `expo-image-picker`, `expo-speech`, `expo-haptics`.
 - Vision backend qua interface `VisionProvider`; provider cụ thể cấu hình bằng environment variables.
 - Không thêm database, RAG, agent framework hoặc fine-tuning.
 
@@ -51,7 +51,8 @@ Nếu một dependency không tương thích với phiên bản hiện tại, ch
 - Home có năm nút lớn cho các mục đọc nhãn; lựa chọn được gửi xuyên suốt tới prompt.
 - Tất cả control có `accessibilityLabel`, role, state và hint phù hợp.
 - Hỗ trợ TalkBack, Dynamic Type, tương phản cao và vùng chạm tối thiểu 48 dp.
-- Luồng camera có trạng thái permission, hướng dẫn, loading, thành công, confidence thấp, lỗi và retry.
+- Luồng ảnh cho phép kết hợp tối đa ba ảnh camera/thư viện của cùng một sản phẩm,
+  có trạng thái permission, hàng ảnh, loading, thành công, confidence thấp, lỗi và retry.
 - TTS dùng `vi-VN`; câu nói ngắn, có nút dừng và đọc lại.
 - Haptics không phải kênh duy nhất truyền thông tin.
 - Không tự động chụp ảnh hoặc upload khi người dùng chưa kích hoạt chế độ.
@@ -79,7 +80,7 @@ Nếu một dependency không tương thích với phiên bản hiện tại, ch
 
 ## UI states bắt buộc
 
-`idle → requesting_permission → camera_ready → capturing → analyzing → success | low_confidence | error`
+`idle → camera_ready | library_ready → collecting_1_to_3_images → analyzing → success | low_confidence | error`
 
 State transition phải rõ, khóa nút trước `onCameraReady` và không để hai request phân tích chạy đồng thời.
 

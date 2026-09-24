@@ -39,11 +39,13 @@ function wait(milliseconds: number): Promise<void> {
 }
 
 function createImageBody(
-  uri: string,
+  uris: readonly string[],
   fields: Record<string, string>,
 ): FormData {
   const body = new FormData();
-  body.append("image", new File(uri), "capture.jpg");
+  uris.forEach((uri, index) => {
+    body.append("images", new File(uri), `label-${index + 1}.jpg`);
+  });
   for (const [key, value] of Object.entries(fields)) {
     body.append(key, value);
   }
@@ -52,7 +54,7 @@ function createImageBody(
 
 async function postImage<T>(
   endpoint: string,
-  uri: string,
+  uris: readonly string[],
   fields: Record<string, string> = {},
 ): Promise<T> {
   if (!API_BASE_URL) {
@@ -78,7 +80,7 @@ async function postImage<T>(
     try {
       response = await expoFetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
-        body: createImageBody(uri, fields),
+        body: createImageBody(uris, fields),
         headers: {
           Accept: "application/json",
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -108,7 +110,10 @@ async function postImage<T>(
     console.error("API request failed before receiving a response", {
       endpoint,
       apiBaseUrl: API_BASE_URL,
-      imageUriScheme: uri.split(":", 1)[0] || "unknown",
+      imageCount: uris.length,
+      imageUriSchemes: uris.map(
+        (uri) => uri.split(":", 1)[0] || "unknown",
+      ),
       cause:
         lastNetworkError instanceof Error
           ? lastNetworkError.message
@@ -178,11 +183,17 @@ export async function validateAccessCode(accessCode: string): Promise<void> {
 }
 
 export function analyzeLabel(
-  uri: string,
+  uris: readonly string[],
   requestedField: LabelTarget,
   ocrText?: string,
 ): Promise<LabelAnalysis> {
-  return postImage("/v1/analyze-label", uri, {
+  if (uris.length < 1 || uris.length > 3) {
+    throw new ApiClientError(
+      "Mỗi lượt cần từ một đến ba ảnh nhãn.",
+      "invalid_image_count",
+    );
+  }
+  return postImage("/v1/analyze-label", uris, {
     locale: "vi-VN",
     requested_field: requestedField,
     ...(ocrText ? { ocr_text: ocrText } : {}),

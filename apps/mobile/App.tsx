@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
 
 import { ActionButton } from "./src/components/ActionButton";
@@ -18,6 +20,10 @@ import {
   getLabelTargetOption,
   LABEL_TARGET_OPTIONS,
 } from "./src/domain/labelTargets";
+import {
+  MAX_LABEL_IMAGES,
+  mergeImageUris,
+} from "./src/domain/imageSelection";
 import type { LabelTarget } from "./src/domain/types";
 import {
   analyzeLabel,
@@ -199,6 +205,8 @@ function LabelCameraScreen({
   const busyRef = useRef(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [isPicking, setIsPicking] = useState(false);
   const [state, dispatch] = useReducer(visionReducer, initialVisionState);
   const option = getLabelTargetOption(target);
 
@@ -206,14 +214,15 @@ function LabelCameraScreen({
     const message =
       error instanceof ApiClientError
         ? error.message
-        : "Không chụp được ảnh. Hãy giữ điện thoại ổn định rồi thử lại.";
+        : "Không xử lý được ảnh. Hãy giữ điện thoại ổn định rồi thử lại.";
     dispatch({ type: "ERROR", message });
     await signalError();
     await speak(message);
   }, []);
 
-  const captureLabel = useCallback(async () => {
+  const captureImage = useCallback(async () => {
     if (busyRef.current) return;
+    if (selectedImages.length >= MAX_LABEL_IMAGES) return;
     if (!cameraRef.current || !cameraReady) {
       await reportError(
         new ApiClientError("Camera chưa sẵn sàng. Hãy đợi một chút rồi thử lại.", "camera_not_ready"),
@@ -225,8 +234,75 @@ function LabelCameraScreen({
     dispatch({ type: "CAPTURE" });
     try {
       const uri = await takePictureReliably(cameraRef.current);
-      dispatch({ type: "ANALYZE" });
-      const result = await analyzeLabel(uri, target);
+      const nextImages = mergeImageUris(selectedImages, [uri]);
+      setSelectedImages(nextImages);
+      dispatch({ type: "GUIDE" });
+      await Haptics.selectionAsync();
+      await speak(
+        `Đã thêm ảnh ${nextImages.length}. ${
+          nextImages.length < MAX_LABEL_IMAGES
+            ? "Bạn có thể chụp thêm hoặc phân tích ngay."
+            : "Đã đủ ba ảnh, hãy nhấn phân tích."
+        }`,
+      );
+    } catch (error) {
+      await reportError(error);
+    } finally {
+      busyRef.current = false;
+    }
+  }, [cameraReady, reportError, selectedImages]);
+
+  const pickImages = useCallback(async () => {
+    if (busyRef.current) return;
+    const remaining = MAX_LABEL_IMAGES - selectedImages.length;
+    if (remaining <= 0) return;
+
+    busyRef.current = true;
+    setIsPicking(true);
+    try {
+      const selection = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.7,
+      });
+      if (selection.canceled) return;
+
+      const nextImages = mergeImageUris(
+        selectedImages,
+        selection.assets.map((asset) => asset.uri),
+      );
+      const addedCount = nextImages.length - selectedImages.length;
+      setSelectedImages(nextImages);
+      dispatch({ type: "GUIDE" });
+      if (addedCount > 0) {
+        await Haptics.selectionAsync();
+        await speak(`Đã chọn thêm ${addedCount} ảnh từ thư viện.`);
+      }
+    } catch (error) {
+      await reportError(error);
+    } finally {
+      setIsPicking(false);
+      busyRef.current = false;
+    }
+  }, [reportError, selectedImages]);
+
+  const analyzeImages = useCallback(async () => {
+    if (busyRef.current) return;
+    if (selectedImages.length === 0) {
+      await reportError(
+        new ApiClientError(
+          "Hãy chụp hoặc chọn ít nhất một ảnh nhãn.",
+          "image_required",
+        ),
+      );
+      return;
+    }
+
+    busyRef.current = true;
+    dispatch({ type: "ANALYZE" });
+    try {
+      const result = await analyzeLabel(selectedImages, target);
       dispatch({
         type: "SUCCESS",
         result,
@@ -243,7 +319,33 @@ function LabelCameraScreen({
     } finally {
       busyRef.current = false;
     }
-  }, [cameraReady, reportError, target]);
+  }, [reportError, selectedImages, target]);
+
+  useEffect(() => {
+    let active = true;
+    void ImagePicker.getPendingResultAsync()
+      .then((pending) => {
+        if (
+          active &&
+          pending &&
+          "canceled" in pending &&
+          !pending.canceled
+        ) {
+          setSelectedImages((current) =>
+            mergeImageUris(
+              current,
+              pending.assets.map((asset) => asset.uri),
+            ),
+          );
+        }
+      })
+      .catch(() => {
+        // A pending picker result is optional recovery, not a blocking error.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(
     () => () => {
@@ -257,44 +359,24 @@ function LabelCameraScreen({
     onBack();
   }, [onBack]);
 
-  if (permission === null) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#ffd400" />
-        <Text style={styles.status}>Đang kiểm tra quyền camera…</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.disclaimer}>
-          <Text style={styles.heading} accessibilityRole="header">
-            Cần quyền camera
-          </Text>
-          <Text style={styles.lead}>
-            Ảnh chỉ được gửi khi bạn chủ động nhấn nút chụp.
-          </Text>
-          <ActionButton
-            label="Cho phép camera"
-            onPress={() => void requestPermission()}
-          />
-          <ActionButton label="Quay lại" onPress={goBack} variant="secondary" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const isBusy = state.phase === "capturing" || state.phase === "analyzing";
+  const isBusy =
+    state.phase === "capturing" || state.phase === "analyzing" || isPicking;
   const statusText = cameraError
     ? cameraError
     : isBusy
-      ? state.phase === "capturing"
+      ? isPicking
+        ? "Đang mở thư viện ảnh…"
+        : state.phase === "capturing"
         ? "Đang chụp ảnh…"
         : "Đang đọc nhãn…"
       : state.error ??
-        (cameraReady ? option.cameraGuide : "Đang khởi động camera…");
+        (selectedImages.length > 0
+          ? `Đã chọn ${selectedImages.length}/${MAX_LABEL_IMAGES} ảnh. Các ảnh phải thuộc cùng một sản phẩm.`
+          : cameraReady
+            ? option.cameraGuide
+            : permission?.granted
+              ? "Đang khởi động camera…"
+              : "Bạn có thể cho phép camera hoặc chọn ảnh từ thư viện.");
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -312,24 +394,42 @@ function LabelCameraScreen({
         </Text>
       </View>
 
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing="back"
-        autofocus="on"
-        onCameraReady={() => {
-          setCameraError(null);
-          setCameraReady(true);
-        }}
-        onMountError={(event) => {
-          setCameraReady(false);
-          setCameraError(`Không mở được camera: ${event.message}`);
-        }}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        <View style={styles.reticle} />
-      </CameraView>
+      {permission?.granted ? (
+        <View style={styles.cameraFrame}>
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            autofocus="on"
+            onCameraReady={() => {
+              setCameraError(null);
+              setCameraReady(true);
+            }}
+            onMountError={(event) => {
+              setCameraReady(false);
+              setCameraError(`Không mở được camera: ${event.message}`);
+            }}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          />
+          <View pointerEvents="none" style={styles.reticle} />
+        </View>
+      ) : (
+        <View style={styles.cameraPlaceholder}>
+          {permission === null ? (
+            <ActivityIndicator size="large" color="#ffd400" />
+          ) : (
+            <>
+              <Text style={styles.cameraPlaceholderTitle}>Camera chưa được phép</Text>
+              <ActionButton
+                label="Cho phép camera"
+                hint="Cho phép chụp nhiều ảnh nhãn"
+                onPress={() => void requestPermission()}
+              />
+            </>
+          )}
+        </View>
+      )}
 
       <ScrollView
         style={styles.controlPanel}
@@ -339,24 +439,71 @@ function LabelCameraScreen({
           {statusText}
         </Text>
 
+        {selectedImages.length > 0 ? (
+          <View style={styles.previewRow} accessibilityLabel="Các ảnh đã chọn">
+            {selectedImages.map((uri, index) => (
+              <View key={uri} style={styles.previewItem}>
+                <Image
+                  source={{ uri }}
+                  style={styles.previewImage}
+                  accessibilityLabel={`Ảnh đã chọn ${index + 1}`}
+                />
+                <Text style={styles.previewNumber}>{index + 1}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <ActionButton
-          label={
-            isBusy
-              ? state.phase === "capturing"
-                ? "Đang chụp…"
-                : "Đang đọc…"
-              : `Chụp ${option.label.toLocaleLowerCase("vi-VN")}`
+          label={`Chụp thêm ảnh (${selectedImages.length}/${MAX_LABEL_IMAGES})`}
+          hint="Chụp một mặt nhãn và thêm vào lượt phân tích"
+          onPress={() => void captureImage()}
+          disabled={
+            !cameraReady ||
+            isBusy ||
+            cameraError !== null ||
+            selectedImages.length >= MAX_LABEL_IMAGES
           }
-          hint={`Chụp nhãn để đọc ${option.label.toLocaleLowerCase("vi-VN")}`}
-          onPress={() => void captureLabel()}
-          disabled={!cameraReady || isBusy || cameraError !== null}
         />
+
+        <ActionButton
+          label="Chọn ảnh từ thư viện"
+          hint="Chọn một hoặc nhiều ảnh nhãn có sẵn trên điện thoại"
+          onPress={() => void pickImages()}
+          disabled={isBusy || selectedImages.length >= MAX_LABEL_IMAGES}
+          variant="secondary"
+        />
+
+        <ActionButton
+          label={`Phân tích ${selectedImages.length} ảnh`}
+          hint={`Gửi ${selectedImages.length} ảnh đã chọn để đọc ${option.label.toLocaleLowerCase("vi-VN")}`}
+          onPress={() => void analyzeImages()}
+          disabled={isBusy || selectedImages.length === 0}
+        />
+
+        {selectedImages.length > 0 ? (
+          <ActionButton
+            label="Xóa ảnh đã chọn"
+            hint="Xóa toàn bộ ảnh khỏi lượt phân tích hiện tại"
+            onPress={() => {
+              setSelectedImages([]);
+              dispatch({ type: "RESET" });
+              void stopSpeaking();
+            }}
+            disabled={isBusy}
+            variant="secondary"
+          />
+        ) : null}
 
         {state.result ? (
           <ResultCard
             result={state.result}
             onReadAgain={() => void speak(state.result!.speech_text)}
-            onRetry={() => dispatch({ type: "RESET" })}
+            onRetry={() => {
+              setSelectedImages([]);
+              dispatch({ type: "RESET" });
+              void stopSpeaking();
+            }}
           />
         ) : null}
       </ScrollView>
@@ -487,12 +634,23 @@ const styles = StyleSheet.create({
   },
   backButton: { minHeight: 48, paddingHorizontal: 14 },
   modeTitle: { color: "#ffffff", fontSize: 24, fontWeight: "900", flex: 1 },
-  camera: {
+  cameraFrame: {
     flex: 1,
     minHeight: 260,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
+  cameraPlaceholder: {
+    flex: 1,
+    minHeight: 260,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 18,
+    padding: 24,
+    backgroundColor: "#0d2845",
+  },
+  cameraPlaceholderTitle: { color: "#ffffff", fontSize: 21, fontWeight: "800" },
   reticle: {
     width: "82%",
     height: "62%",
@@ -501,7 +659,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   controlPanel: {
-    maxHeight: "55%",
+    maxHeight: "64%",
     backgroundColor: "#06121f",
   },
   controlPanelContent: {
@@ -509,4 +667,32 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   status: { color: "#ffffff", fontSize: 18, lineHeight: 26, textAlign: "center" },
+  previewRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+  previewItem: { position: "relative" },
+  previewImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#68b7ff",
+    backgroundColor: "#0d2845",
+  },
+  previewNumber: {
+    position: "absolute",
+    right: 4,
+    bottom: 4,
+    minWidth: 24,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: "hidden",
+    backgroundColor: "#ffd400",
+    color: "#06121f",
+    fontWeight: "900",
+    textAlign: "center",
+  },
 });

@@ -57,6 +57,7 @@ class LabelProviderResult(BaseModel):
 
 class LabelAnalysis(LabelProviderResult):
     requested_field: LabelTarget
+    image_count: int = Field(ge=1, le=3)
     request_id: str
     provider: str
     demo_mode: bool

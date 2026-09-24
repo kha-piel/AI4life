@@ -7,6 +7,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from app.errors import VisionProviderError
+from app.providers.base import VisionImage
 from app.providers.prompts import LABEL_INSTRUCTIONS, build_label_prompt
 from app.schemas import LabelProviderResult, LabelTarget
 
@@ -45,13 +46,23 @@ class GroqVisionProvider:
     async def _request(
         self,
         *,
-        image_bytes: bytes,
-        mime_type: str,
+        images: list[VisionImage],
         prompt: str,
         instructions: str,
         result_type: type[ResultT],
     ) -> ResultT:
-        encoded = base64.b64encode(image_bytes).decode("ascii")
+        image_content = [
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": (
+                        f"data:{mime_type};base64,"
+                        f"{base64.b64encode(image_bytes).decode('ascii')}"
+                    )
+                },
+            }
+            for image_bytes, mime_type in images
+        ]
         schema = json.dumps(result_type.model_json_schema(), ensure_ascii=False)
         system_prompt = (
             f"{instructions}\n\n"
@@ -66,12 +77,7 @@ class GroqVisionProvider:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{encoded}"
-                            },
-                        },
+                        *image_content,
                     ],
                 },
             ],
@@ -120,15 +126,13 @@ class GroqVisionProvider:
 
     async def analyze_label(
         self,
-        image_bytes: bytes,
-        mime_type: str,
+        images: list[VisionImage],
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,
     ) -> LabelProviderResult:
         return await self._request(
-            image_bytes=image_bytes,
-            mime_type=mime_type,
+            images=images,
             prompt=build_label_prompt(requested_field, locale, ocr_text),
             instructions=LABEL_INSTRUCTIONS,
             result_type=LabelProviderResult,

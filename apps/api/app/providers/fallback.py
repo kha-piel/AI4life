@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from app.errors import VisionProviderError
-from app.providers.base import VisionProvider
+from app.providers.base import VisionImage, VisionProvider
 from app.providers.fixture import FixtureVisionProvider
 from app.schemas import LabelProviderResult, LabelTarget
 
@@ -23,8 +23,7 @@ class FallbackVisionProvider:
 
     async def analyze_label(
         self,
-        image_bytes: bytes,
-        mime_type: str,
+        images: list[VisionImage],
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,
@@ -32,7 +31,7 @@ class FallbackVisionProvider:
         try:
             result = await asyncio.wait_for(
                 self.primary.analyze_label(
-                    image_bytes, mime_type, ocr_text, locale, requested_field
+                    images, ocr_text, locale, requested_field
                 ),
                 timeout=self.timeout_seconds,
             )
@@ -44,7 +43,7 @@ class FallbackVisionProvider:
             self.last_provider = "fixture-fallback"
             self.last_demo_mode = True
             result = await self.fallback.analyze_label(
-                image_bytes, mime_type, ocr_text, locale, requested_field
+                images, ocr_text, locale, requested_field
             )
             result.warnings.insert(
                 0, "Dịch vụ AI bên ngoài lỗi; đây là kết quả dữ liệu mẫu"

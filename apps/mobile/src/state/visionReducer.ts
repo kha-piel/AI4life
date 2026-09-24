@@ -7,10 +7,7 @@ export type VisionPhase =
   | "analyzing"
   | "success"
   | "low_confidence"
-  | "error"
-  | "scanning"
-  | "paused"
-  | "stopped";
+  | "error";
 
 export type VisionState = {
   phase: VisionPhase;
@@ -22,9 +19,6 @@ export type VisionAction =
   | { type: "GUIDE" }
   | { type: "CAPTURE" }
   | { type: "ANALYZE" }
-  | { type: "SCAN_START" }
-  | { type: "SCAN_PAUSE" }
-  | { type: "STOP" }
   | { type: "SUCCESS"; result: LabelAnalysis; lowConfidence: boolean }
   | { type: "ERROR"; message: string }
   | { type: "RESET" };
@@ -46,12 +40,6 @@ export function visionReducer(
       return { ...state, phase: "capturing", error: null };
     case "ANALYZE":
       return { ...state, phase: "analyzing", error: null };
-    case "SCAN_START":
-      return { ...state, phase: "scanning", error: null };
-    case "SCAN_PAUSE":
-      return { ...state, phase: "paused" };
-    case "STOP":
-      return { phase: "stopped", result: null, error: null };
     case "SUCCESS":
       return {
         phase: action.lowConfidence ? "low_confidence" : "success",

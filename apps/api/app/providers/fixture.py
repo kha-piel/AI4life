@@ -3,6 +3,7 @@ from app.schemas import (
     LabelProviderResult,
     LabelTarget,
 )
+from app.providers.base import VisionImage
 
 
 class FixtureVisionProvider:
@@ -11,8 +12,7 @@ class FixtureVisionProvider:
 
     async def analyze_label(
         self,
-        image_bytes: bytes,
-        mime_type: str,
+        images: list[VisionImage],
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,

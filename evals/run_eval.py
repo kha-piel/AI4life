@@ -42,8 +42,7 @@ async def evaluate() -> dict[str, Any]:
 
         requested_field = LabelTarget(row["requested_field"])
         result = await provider.analyze_label(
-            image_bytes,
-            "image/jpeg",
+            [(image_bytes, "image/jpeg")],
             row.get("ocr_text"),
             "vi-VN",
             requested_field,

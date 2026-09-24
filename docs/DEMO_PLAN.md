@@ -34,9 +34,10 @@ ngắn có bằng chứng trong dưới 60 giây.
 1. TalkBack đọc màn hình “Bạn muốn đọc gì?”.
 2. Chọn nút lớn “Hạn sử dụng”.
 3. App hướng dẫn đưa chữ HSD/EXP vào khung.
-4. Chờ nút chụp được bật rồi chụp.
-5. App đọc một câu, ví dụ “Hạn sử dụng: ngày 15 tháng 10 năm 2027”.
-6. Chỉ ra dòng “Chữ nhìn thấy” làm bằng chứng.
+4. Chụp mặt trước và mặt có HSD, hoặc chọn hai ảnh có sẵn từ thư viện.
+5. Kiểm tra dòng “Đã chọn 2/3 ảnh”, rồi nhấn “Phân tích 2 ảnh”.
+6. App đọc một câu, ví dụ “Hạn sử dụng: ngày 15 tháng 10 năm 2027”.
+7. Chỉ ra số ảnh và dòng “Chữ nhìn thấy” làm bằng chứng.
 
 ### Cảnh 3: Thành phần hoặc tên sản phẩm — 15 giây
 
@@ -57,6 +58,7 @@ không biến ngày sản xuất thành hạn sử dụng.
 | Provider lỗi | Hiển thị failure state hoặc video quay trước; không giả là live |
 | Camera chưa sẵn sàng | Chờ hướng dẫn đổi từ “Đang khởi động camera” rồi mới chụp |
 | Camera không focus | Chụp gần hơn, đủ sáng, giữ yên hoặc dùng vật mẫu chữ lớn |
+| Không cấp quyền camera | Dùng nút “Chọn ảnh từ thư viện” |
 | TTS không phát | Dùng chữ lớn và TalkBack |
 
 ## 5. Bộ test tối thiểu trước demo
@@ -67,6 +69,7 @@ không biến ngày sản xuất thành hạn sử dụng.
 - 3 nhãn thành phần và 3 nhãn hướng dẫn.
 - Ảnh thẳng, nghiêng, tối, lóa và mờ.
 - Chụp liên tục 10 lần để kiểm tra camera lifecycle.
+- Trộn một ảnh camera và hai ảnh thư viện; kiểm tra ảnh thứ tư bị chặn.
 - Render cold-start, mất mạng và provider timeout.
 - TalkBack focus, label, role, state và vùng chạm.
 

@@ -131,6 +131,7 @@ def test_analyze_label_returns_explicit_fixture_result(client: TestClient) -> No
     assert payload["data"]["demo_mode"] is True
     assert payload["data"]["provider"] == "fixture"
     assert payload["data"]["requested_field"] == "all"
+    assert payload["data"]["image_count"] == 1
     assert payload["data"]["expiry_date"] == "2027-10"
     assert payload["data"]["request_id"]
     assert response.headers["x-request-id"] == payload["data"]["request_id"]
@@ -151,6 +152,57 @@ def test_analyze_label_focuses_on_requested_field(client: TestClient) -> None:
     assert data["requested_field"] == "expiry_date"
     assert data["expiry_date"] == "2027-10"
     assert data["product_name"] is None
+
+
+def test_analyze_label_accepts_multiple_images(client: TestClient) -> None:
+    response = client.post(
+        "/v1/analyze-label",
+        files=[
+            ("images", ("front.jpg", JPEG_BYTES, "image/jpeg")),
+            ("images", ("back.jpg", JPEG_BYTES + b"back", "image/jpeg")),
+            ("images", ("date.jpg", JPEG_BYTES + b"date", "image/jpeg")),
+        ],
+        data={"requested_field": "all"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["image_count"] == 3
+
+
+def test_analyze_label_rejects_more_than_three_images(client: TestClient) -> None:
+    response = client.post(
+        "/v1/analyze-label",
+        files=[
+            ("images", (f"label-{index}.jpg", JPEG_BYTES, "image/jpeg"))
+            for index in range(4)
+        ],
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "too_many_images"
+
+
+def test_analyze_label_rejects_excessive_total_size(
+    client: TestClient, monkeypatch
+) -> None:
+    monkeypatch.setattr("app.routes.MAX_TOTAL_IMAGE_BYTES", len(JPEG_BYTES))
+    response = client.post(
+        "/v1/analyze-label",
+        files=[
+            ("images", ("front.jpg", JPEG_BYTES, "image/jpeg")),
+            ("images", ("back.jpg", JPEG_BYTES, "image/jpeg")),
+        ],
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "images_too_large"
+
+
+def test_analyze_label_requires_an_image(client: TestClient) -> None:
+    response = client.post("/v1/analyze-label")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "image_required"
 
 
 def test_analyze_label_rejects_unknown_requested_field(client: TestClient) -> None:
@@ -205,7 +257,7 @@ class SlowProvider:
     demo_mode = False
 
     async def analyze_label(
-        self, image_bytes, mime_type, ocr_text, locale, requested_field
+        self, images, ocr_text, locale, requested_field
     ):
         await asyncio.sleep(0.1)
         return LabelProviderResult(

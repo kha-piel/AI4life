@@ -10,6 +10,7 @@ export type LabelTarget =
 export type LabelAnalysis = {
   request_id: string;
   requested_field: LabelTarget;
+  image_count: number;
   product_type: string | null;
   product_name: string | null;
   expiry_date: string | null;

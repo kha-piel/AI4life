@@ -3,10 +3,16 @@
     "name": "AIVision",
     "slug": "doi-mat-ai",
     "version": "0.1.0",
+    "icon": "./assets/aivision-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "android": {
       "package": "vn.ai4life.doimataimvp",
+      "icon": "./assets/aivision-icon.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/aivision-icon.png",
+        "backgroundColor": "#062653"
+      },
       "permissions": [
         "CAMERA",
         "VIBRATE"
@@ -21,6 +27,14 @@
         {
           "cameraPermission": "AIVision cần camera để đọc thông tin trên nhãn sản phẩm.",
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AIVision cần truy cập ảnh bạn chọn để đọc nhãn sản phẩm.",
+          "cameraPermission": "AIVision cần camera để đọc thông tin trên nhãn sản phẩm.",
+          "microphonePermission": false
         }
       ],
       "expo-secure-store"

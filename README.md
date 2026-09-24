@@ -5,6 +5,8 @@ thị lực kém và người lớn tuổi.
 
 - **Đọc đúng mục cần thiết:** chọn hạn sử dụng, tên sản phẩm, thành phần, hướng
   dẫn sử dụng hoặc đọc tất cả trước khi chụp.
+- **Nhiều góc nhãn:** chụp hoặc chọn từ thư viện tối đa 3 ảnh của cùng một sản
+  phẩm rồi phân tích trong một request.
 - **Phản hồi ngắn:** chỉ nghe thông tin đã chọn, kèm chữ nhìn thấy và yêu cầu
   chụp lại khi ảnh không đủ rõ.
 
@@ -18,8 +20,8 @@ thị lực kém và người lớn tuổi.
 - OpenAI Responses vẫn là provider tùy chọn qua cùng interface.
 - Live mode fail-closed: thiếu key hoặc external AI lỗi thì trả lỗi, không tráo dữ liệu mẫu.
 - Fixture chỉ dùng cho test/evaluation offline, không nằm trong đường chạy Android.
-- Backend tests: 25 test.
-- Mobile tests: 13 test.
+- Backend tests: 29 test.
+- Mobile tests: 15 test.
 - Evaluation: synthetic fixtures, chỉ chứng minh pipeline chứ không chứng minh
   accuracy ngoài đời.
 
@@ -128,12 +130,13 @@ Evaluation report được ghi vào `evals/reports/latest.{json,md}`.
 
 - `GET /health`
 - `GET /v1/access-check`: kiểm tra mã mời trong cloud mode.
-- `POST /v1/analyze-label`: multipart `image`, `requested_field`, tùy chọn
-  `ocr_text`, `locale`.
+- `POST /v1/analyze-label`: multipart một `image` cũ hoặc tối đa ba trường
+  `images`, `requested_field`, tùy chọn `ocr_text`, `locale`.
 - OpenAPI: http://localhost:8000/docs
 
-Ảnh hợp lệ: JPEG, PNG hoặc WEBP, tối đa 5 MB. API kiểm tra cả MIME và file
-signature, rate-limit theo IP, gắn request ID và trả error envelope nhất quán.
+Ảnh hợp lệ: JPEG, PNG hoặc WEBP, tối đa 5 MB mỗi ảnh, 12 MB tổng và 3 ảnh mỗi lượt. API kiểm
+tra cả MIME và file signature, rate-limit theo IP, gắn request ID và trả error
+envelope nhất quán.
 
 ## Biến môi trường
 
@@ -157,7 +160,8 @@ signature, rate-limit theo IP, gắn request ID và trả error envelope nhất 
 
 ## Giới hạn còn lại
 
-- Chưa kiểm thử camera, TalkBack, TTS và haptics trên thiết bị Android thật.
+- Chưa kiểm thử camera, chọn nhiều ảnh, TalkBack, TTS và haptics trên thiết bị
+  Android thật.
 - Nút chụp chờ `onCameraReady`, capture lỗi được retry một lần và request mạng
   tạm lỗi được retry có giới hạn; vẫn cần kiểm thử nhiều thiết bị thật.
 - Chưa có OCR on-device native adapter; MVP hiện dùng model vision để OCR và

@@ -6,6 +6,7 @@ import { initialVisionState, visionReducer } from "./visionReducer";
 const result: LabelAnalysis = {
   request_id: "req-1",
   requested_field: "product_name",
+  image_count: 2,
   product_type: "food",
   product_name: "Nước mắm",
   expiry_date: null,
