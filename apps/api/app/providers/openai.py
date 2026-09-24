@@ -9,7 +9,7 @@ from pydantic import BaseModel, ValidationError
 from app.errors import VisionProviderError
 from app.providers.base import VisionImage
 from app.providers.prompts import LABEL_INSTRUCTIONS, build_label_prompt
-from app.schemas import LabelProviderResult, LabelTarget
+from app.schemas import HealthCondition, LabelProviderResult, LabelTarget
 
 
 ResultT = TypeVar("ResultT", bound=BaseModel)
@@ -130,10 +130,13 @@ class OpenAIVisionProvider:
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,
+        health_condition: HealthCondition | None,
     ) -> LabelProviderResult:
         return await self._request(
             images=images,
-            prompt=build_label_prompt(requested_field, locale, ocr_text),
+            prompt=build_label_prompt(
+                requested_field, locale, ocr_text, health_condition
+            ),
             instructions=LABEL_INSTRUCTIONS,
             result_type=LabelProviderResult,
             schema_name="label_analysis",

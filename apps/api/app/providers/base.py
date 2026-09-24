@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.schemas import LabelProviderResult, LabelTarget
+from app.schemas import HealthCondition, LabelProviderResult, LabelTarget
 
 VisionImage = tuple[bytes, str]
 
@@ -15,4 +15,5 @@ class VisionProvider(Protocol):
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,
+        health_condition: HealthCondition | None,
     ) -> LabelProviderResult: ...

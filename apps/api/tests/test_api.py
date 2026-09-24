@@ -6,10 +6,15 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.dependencies import get_provider
 from app.main import create_app
+from app.routes import _apply_health_safety
 from app.schemas import (
     Confidence,
+    HealthAssessment,
+    HealthCondition,
+    HealthVerdict,
     LabelProviderResult,
     LabelTarget,
+    empty_nutrition_facts,
 )
 from tests.conftest import JPEG_BYTES
 
@@ -169,6 +174,79 @@ def test_analyze_label_accepts_multiple_images(client: TestClient) -> None:
     assert response.json()["data"]["image_count"] == 3
 
 
+def test_diabetes_analysis_uses_visible_nutrition_evidence(client: TestClient) -> None:
+    response = client.post(
+        "/v1/analyze-label",
+        files={"image": ("nutrition.jpg", JPEG_BYTES, "image/jpeg")},
+        data={
+            "requested_field": "all",
+            "health_condition": "diabetes",
+            "ocr_text": "Serving size 1 bottle Total carbohydrate 30g Added sugar 20g",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["health_assessment"]["condition"] == "diabetes"
+    assert data["health_assessment"]["verdict"] == "limit"
+    assert data["health_assessment"]["ingredient_assessments"][0]["ingredient"] == "Đường"
+    assert data["nutrition_facts"]["total_carbohydrate_g"] == 30
+
+
+def test_diabetes_analysis_abstains_without_nutrition_table(client: TestClient) -> None:
+    response = client.post(
+        "/v1/analyze-label",
+        files={"image": ("front.jpg", JPEG_BYTES, "image/jpeg")},
+        data={"health_condition": "diabetes", "ocr_text": "PANADOL EXTRA"},
+    )
+
+    assert response.status_code == 200
+    assessment = response.json()["data"]["health_assessment"]
+    assert assessment["verdict"] == "uncertain"
+    assert "Tổng carbohydrate" in assessment["missing_information"]
+
+
+def test_analyze_label_rejects_unknown_health_condition(client: TestClient) -> None:
+    response = client.post(
+        "/v1/analyze-label",
+        files={"image": ("label.jpg", JPEG_BYTES, "image/jpeg")},
+        data={"health_condition": "made_up_condition"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_safety_guard_overrides_unsupported_positive_diabetes_claim() -> None:
+    unsafe_result = LabelProviderResult(
+        product_type="food",
+        product_name="Sản phẩm mẫu",
+        expiry_date=None,
+        ingredients=["Đường"],
+        visible_instructions=[],
+        warnings=[],
+        unreadable_fields=["bảng dinh dưỡng"],
+        evidence_text=["Đường"],
+        nutrition_facts=empty_nutrition_facts(),
+        confidence=Confidence.MEDIUM,
+        speech_text="Sản phẩm phù hợp.",
+        health_assessment=HealthAssessment(
+            condition=HealthCondition.DIABETES,
+            verdict=HealthVerdict.CONSIDER,
+            summary="Có thể dùng.",
+            reasons=["Có đường."],
+            ingredient_assessments=[],
+            missing_information=[],
+        ),
+    )
+
+    safe_result = _apply_health_safety(unsafe_result, HealthCondition.DIABETES)
+
+    assert safe_result.health_assessment is not None
+    assert safe_result.health_assessment.verdict == HealthVerdict.UNCERTAIN
+    assert "Tổng carbohydrate" in safe_result.health_assessment.missing_information
+
+
 def test_analyze_label_rejects_more_than_three_images(client: TestClient) -> None:
     response = client.post(
         "/v1/analyze-label",
@@ -257,7 +335,7 @@ class SlowProvider:
     demo_mode = False
 
     async def analyze_label(
-        self, images, ocr_text, locale, requested_field
+        self, images, ocr_text, locale, requested_field, health_condition
     ):
         await asyncio.sleep(0.1)
         return LabelProviderResult(
@@ -269,6 +347,8 @@ class SlowProvider:
             warnings=[],
             unreadable_fields=[],
             evidence_text=[],
+            nutrition_facts=empty_nutrition_facts(),
+            health_assessment=None,
             confidence=Confidence.LOW,
             speech_text="Không rõ.",
         )

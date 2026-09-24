@@ -4,7 +4,7 @@ import logging
 from app.errors import VisionProviderError
 from app.providers.base import VisionImage, VisionProvider
 from app.providers.fixture import FixtureVisionProvider
-from app.schemas import LabelProviderResult, LabelTarget
+from app.schemas import HealthCondition, LabelProviderResult, LabelTarget
 
 
 logger = logging.getLogger(__name__)
@@ -27,11 +27,12 @@ class FallbackVisionProvider:
         ocr_text: str | None,
         locale: str,
         requested_field: LabelTarget,
+        health_condition: HealthCondition | None,
     ) -> LabelProviderResult:
         try:
             result = await asyncio.wait_for(
                 self.primary.analyze_label(
-                    images, ocr_text, locale, requested_field
+                    images, ocr_text, locale, requested_field, health_condition
                 ),
                 timeout=self.timeout_seconds,
             )
@@ -43,7 +44,7 @@ class FallbackVisionProvider:
             self.last_provider = "fixture-fallback"
             self.last_demo_mode = True
             result = await self.fallback.analyze_label(
-                images, ocr_text, locale, requested_field
+                images, ocr_text, locale, requested_field, health_condition
             )
             result.warnings.insert(
                 0, "Dịch vụ AI bên ngoài lỗi; đây là kết quả dữ liệu mẫu"

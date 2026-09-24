@@ -12,7 +12,7 @@ from app.providers.fallback import FallbackVisionProvider
 from app.providers.factory import build_provider
 from app.providers.groq import GroqVisionProvider, _extract_message_content
 from app.providers.openai import OpenAIVisionProvider, _extract_output_text
-from app.schemas import LabelProviderResult, LabelTarget
+from app.schemas import LabelProviderResult, LabelTarget, empty_nutrition_facts
 from tests.conftest import JPEG_BYTES
 
 
@@ -21,7 +21,7 @@ class FailingProvider:
     demo_mode = False
 
     async def analyze_label(
-        self, images, ocr_text, locale, requested_field
+        self, images, ocr_text, locale, requested_field, health_condition
     ):
         raise VisionProviderError("offline")
 
@@ -31,7 +31,7 @@ class HangingProvider:
     demo_mode = False
 
     async def analyze_label(
-        self, images, ocr_text, locale, requested_field
+        self, images, ocr_text, locale, requested_field, health_condition
     ):
         await asyncio.sleep(1)
 
@@ -67,7 +67,7 @@ async def test_external_failure_uses_labeled_fixture_fallback() -> None:
     provider = FallbackVisionProvider(FailingProvider(), timeout_seconds=0.1)
 
     result = await provider.analyze_label(
-        [(JPEG_BYTES, "image/jpeg")], "PANADOL", "vi-VN", LabelTarget.ALL
+        [(JPEG_BYTES, "image/jpeg")], "PANADOL", "vi-VN", LabelTarget.ALL, None
     )
 
     assert provider.last_provider == "fixture-fallback"
@@ -80,7 +80,7 @@ async def test_external_timeout_uses_labeled_fixture_fallback() -> None:
     provider = FallbackVisionProvider(HangingProvider(), timeout_seconds=0.001)
 
     result = await provider.analyze_label(
-        [(JPEG_BYTES, "image/jpeg")], "DẦU GỘI", "vi-VN", LabelTarget.ALL
+        [(JPEG_BYTES, "image/jpeg")], "DẦU GỘI", "vi-VN", LabelTarget.ALL, None
     )
 
     assert provider.last_provider == "fixture-fallback"
@@ -123,6 +123,8 @@ async def test_groq_provider_sends_exact_image_in_json_mode(monkeypatch) -> None
         "warnings": [],
         "unreadable_fields": ["expiry_date"],
         "evidence_text": ["CAMERA LABEL"],
+        "nutrition_facts": empty_nutrition_facts().model_dump(),
+        "health_assessment": None,
         "confidence": "medium",
         "speech_text": "Tôi đọc được nhãn từ ảnh camera.",
     }
@@ -170,6 +172,7 @@ async def test_groq_provider_sends_exact_image_in_json_mode(monkeypatch) -> None
         None,
         "vi-VN",
         LabelTarget.EXPIRY_DATE,
+        None,
     )
 
     body = captured["body"]
@@ -196,6 +199,8 @@ async def test_openai_provider_sends_exact_image_without_storage(monkeypatch) ->
         "warnings": [],
         "unreadable_fields": ["expiry_date"],
         "evidence_text": ["CAMERA LABEL"],
+        "nutrition_facts": empty_nutrition_facts().model_dump(),
+        "health_assessment": None,
         "confidence": "medium",
         "speech_text": "Tôi đọc được nhãn từ ảnh camera.",
     }
@@ -247,6 +252,7 @@ async def test_openai_provider_sends_exact_image_without_storage(monkeypatch) ->
         None,
         "vi-VN",
         LabelTarget.PRODUCT_NAME,
+        None,
     )
 
     image_url = captured["body"]["input"][0]["content"][1]["image_url"]
@@ -269,6 +275,8 @@ def test_expiry_date_rejects_impossible_month() -> None:
             warnings=[],
             unreadable_fields=[],
             evidence_text=[],
+            nutrition_facts=empty_nutrition_facts(),
+            health_assessment=None,
             confidence="low",
             speech_text="Không rõ.",
         )
@@ -284,6 +292,8 @@ def test_expiry_date_accepts_real_full_date() -> None:
         warnings=[],
         unreadable_fields=[],
         evidence_text=["EXP 15/10/2027"],
+        nutrition_facts=empty_nutrition_facts(),
+        health_assessment=None,
         confidence="high",
         speech_text="Hạn sử dụng ngày 15 tháng 10 năm 2027.",
     )
@@ -302,6 +312,8 @@ def test_expiry_date_rejects_impossible_full_date() -> None:
             warnings=[],
             unreadable_fields=[],
             evidence_text=[],
+            nutrition_facts=empty_nutrition_facts(),
+            health_assessment=None,
             confidence="low",
             speech_text="Không rõ.",
         )

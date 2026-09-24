@@ -1,27 +1,25 @@
-# Kiến trúc MVP — AIVision đọc nhãn theo mục tiêu
+# Kiến trúc MVP — AIVision đọc nhãn và sàng lọc sức khỏe
 
 ## 1. Problem brief
 
 - **Người dùng:** người khiếm thị, người thị lực kém và người lớn tuổi dùng Android.
-- **Công việc cần làm:** nghe đúng một thông tin trên nhãn mà không phải nghe toàn
-  bộ nội dung dài.
-- **Hành vi đích:** chọn mục cần đọc, chụp hoặc chọn tối đa ba ảnh của cùng một
-  sản phẩm, nhận một câu trả lời tiếng Việt ngắn có bằng chứng hoặc yêu cầu chụp lại.
-- **Chỉ số chính:** hoàn tất luồng chọn mục → chụp → nghe kết quả trên thiết bị thật.
+- **Công việc cần làm:** nghe toàn bộ thông tin quan trọng trên nhãn và, khi chủ
+  động chọn tiểu đường, biết yếu tố nào cần cân nhắc.
+- **Hành vi đích:** chọn hoặc bỏ qua hồ sơ sức khỏe, chụp/chọn tối đa ba ảnh cùng
+  sản phẩm, nhận kết quả tiếng Việt có bằng chứng hoặc yêu cầu chụp thêm.
+- **Chỉ số chính:** hoàn tất luồng chọn hồ sơ → chụp → nghe kết quả trên thiết bị thật.
 - **Guardrail:** không biến NSX thành HSD, không suy đoán thành phần/liều dùng, không
-  trả dữ liệu mẫu cho ảnh thật.
+  trả dữ liệu mẫu cho ảnh thật và không khẳng định thực phẩm an toàn khi thiếu
+  khẩu phần hoặc tổng carbohydrate.
 - **Ngoài phạm vi:** nhận diện chướng ngại vật, dẫn đường, lưu lịch sử ảnh, tài khoản,
   RAG, agent, fine-tuning và speech-to-text trong vertical slice này.
 
 ## 2. Quyết định sản phẩm
 
-Ứng dụng chỉ còn một chức năng: đọc nhãn. Trước khi camera mở, người dùng chọn:
-
-1. Hạn sử dụng.
-2. Tên sản phẩm.
-3. Thành phần.
-4. Hướng dẫn sử dụng.
-5. Đọc tất cả.
+Ứng dụng chỉ còn một chức năng: **Đọc và phân tích nhãn**. Các nút Hạn sử dụng,
+Tên sản phẩm, Thành phần và Hướng dẫn sử dụng được bỏ khỏi APK mới vì nội dung đã
+nằm trong kết quả đầy đủ. Trước khi mở camera, người dùng chọn **Không chọn bệnh
+nền** hoặc **Tiểu đường**; lựa chọn này chỉ tồn tại trong bộ nhớ của phiên app.
 
 Các nút lớn là baseline chính vì ổn định trong EAS APK, có thể được TalkBack đọc và
 không phụ thuộc speech recognizer trên từng máy. Điều khiển bằng giọng nói là bước
@@ -45,34 +43,37 @@ flowchart LR
     G[Groq Qwen Vision]
     T[TTS + haptics]
 
-    U -->|chọn requested_field| M
+    U -->|chọn hồ sơ tùy chọn| M
     M --> C
     M --> P
     C -->|1-3 ảnh| M
     P -->|1-3 ảnh| M
-    M -->|multipart images + requested_field| A
+    M -->|images + all + health_condition?| A
     S -->|Bearer token| A
-    A --> V -->|ảnh + prompt tập trung| G
+    A --> V -->|ảnh + prompt có guardrail| G
     G -->|JSON có schema| V --> A
     A -->|speech_text + evidence| M --> T --> U
 ```
 
 ## 4. Luồng chính
 
-1. Người dùng chọn một `requested_field`.
-2. App hiển thị hướng dẫn căn đúng vùng chữ cho mục đó.
+1. Người dùng chọn không phân tích bệnh nền hoặc `health_condition=diabetes`.
+2. App yêu cầu chụp mặt trước, thành phần và bảng dinh dưỡng.
 3. Người dùng thêm tối đa ba ảnh bằng camera, thư viện hoặc kết hợp cả hai; các ảnh
    phải thuộc cùng một sản phẩm.
 4. Nút chụp bị khóa cho tới khi `onCameraReady` chạy; thư viện vẫn dùng được khi
    người dùng không cấp quyền camera.
 5. App chụp JPEG chất lượng 0.62; lỗi camera tạm thời được thử lại đúng một lần sau
    400 ms và khôi phục kết quả image picker nếu Android hủy Activity.
-6. App gửi multipart `images`, `requested_field`, `locale` và Bearer invite code.
+6. App gửi multipart `images`, `requested_field=all`, `health_condition` tùy chọn,
+   `locale` và Bearer invite code.
 7. API xác thực số ảnh, MIME, signature, kích thước và rate limit trước khi gọi model
    đúng một lần cho cả lượt.
-8. Prompt yêu cầu model kết hợp bằng chứng nhưng abstain khi các ảnh mâu thuẫn;
+8. Prompt yêu cầu model trích xuất nhãn/bảng dinh dưỡng và kết hợp bằng chứng;
    Pydantic từ chối JSON sai schema.
-9. App đọc `speech_text`, hiển thị số ảnh/bằng chứng và cho phép bắt đầu lượt mới.
+9. Nếu đánh giá tiểu đường thiếu khẩu phần hoặc tổng carbohydrate, lớp code hậu
+   kiểm buộc verdict thành `uncertain`, bất kể model đã trả gì.
+10. App đọc `speech_text`, hiển thị verdict, lý do, dữ liệu thiếu và disclaimer.
 
 ## 5. API contract
 
@@ -83,7 +84,9 @@ Multipart:
 - `images`: lặp lại 1-3 lần, JPEG/PNG/WEBP, tối đa 5 MB mỗi ảnh và 12 MB tổng;
 - `image`: một ảnh legacy để tương thích client cũ;
 - `requested_field`: `expiry_date`, `product_name`, `ingredients`,
-  `usage_instructions` hoặc `all`; mặc định `all` để tương thích client cũ;
+  `usage_instructions` hoặc `all`; APK mới chỉ gửi `all`, giá trị cũ được giữ để
+  tương thích client cũ;
+- `health_condition`: tùy chọn `diabetes`; không gửi nếu người dùng không chọn;
 - `ocr_text`: tùy chọn;
 - `locale`: mặc định `vi-VN`.
 
@@ -93,16 +96,34 @@ Response ví dụ:
 {
   "success": true,
   "data": {
-    "requested_field": "expiry_date",
-    "image_count": 2,
-    "product_type": null,
-    "product_name": null,
+    "requested_field": "all",
+    "image_count": 3,
+    "product_type": "food",
+    "product_name": "Sản phẩm mẫu",
     "expiry_date": "2027-10-15",
-    "ingredients": [],
+    "ingredients": ["Bột mì", "Đường"],
     "visible_instructions": [],
     "warnings": [],
     "unreadable_fields": [],
-    "evidence_text": ["HSD 15/10/2027"],
+    "evidence_text": ["HSD 15/10/2027", "Total carbohydrate 30 g"],
+    "nutrition_facts": {
+      "serving_size": "1 gói",
+      "total_carbohydrate_g": 30,
+      "total_sugars_g": 12,
+      "added_sugars_g": 10,
+      "dietary_fiber_g": 2,
+      "sodium_mg": 180
+    },
+    "health_assessment": {
+      "condition": "diabetes",
+      "verdict": "limit",
+      "summary": "Nên hạn chế và tính 30 g carbohydrate vào kế hoạch bữa ăn.",
+      "reasons": ["Nhãn ghi 30 g tổng carbohydrate mỗi khẩu phần."],
+      "ingredient_assessments": [
+        {"ingredient": "Đường", "verdict": "limit", "reason": "Có thể làm tăng đường huyết."}
+      ],
+      "missing_information": []
+    },
     "confidence": "high",
     "speech_text": "Hạn sử dụng: ngày 15 tháng 10 năm 2027.",
     "request_id": "uuid",
@@ -128,9 +149,11 @@ Response ví dụ:
 | Provider timeout | API trả `provider_timeout` cùng request ID |
 | Provider trả JSON sai | Log loại lỗi, không log ảnh/OCR/model output; trả `provider_failure` |
 | Mục không đọc rõ | Model phải abstain, đưa field vào `unreadable_fields` |
+| Model kết luận tích cực nhưng thiếu dữ liệu tiểu đường | Code đổi thành `uncertain` và yêu cầu chụp bảng dinh dưỡng |
 
-Backend log `request_id`, `requested_field`, `image_count`, provider, latency và loại lỗi. Backend
-không log ảnh, invite code, OCR đầy đủ hoặc response model.
+Backend log `request_id`, `requested_field`, `image_count`, cờ có/không yêu cầu
+đánh giá sức khỏe, provider, latency và loại lỗi. Backend không log bệnh nền cụ
+thể, ảnh, invite code, OCR đầy đủ hoặc response model.
 
 ## 7. Security và privacy
 
@@ -139,6 +162,8 @@ không log ảnh, invite code, OCR đầy đủ hoặc response model.
   SHA-256 hash và so sánh constant-time.
 - APK chỉ chứa URL HTTPS công khai và cờ bật auth.
 - Ảnh tồn tại trong bộ nhớ của request, không có database hoặc object storage.
+- Bệnh nền chỉ nằm trong request hiện tại; mobile không lưu hồ sơ và backend không
+  ghi giá trị bệnh nền vào log.
 - Chữ trong ảnh được coi là untrusted data để giảm prompt injection.
 - Rate limit theo invite code hợp lệ, theo IP với request chưa xác thực.
 
@@ -151,11 +176,11 @@ always-on, managed rate limit và monitoring.
 
 ## 9. Evaluation và release gate
 
-- Unit/API tests kiểm tra từng `requested_field`, 1-3 ảnh, giới hạn ảnh, invalid
-  target, auth, upload và provider contract.
+- Unit/API tests kiểm tra compatibility của `requested_field`, 1-3 ảnh, giới hạn
+  ảnh, health condition, guardrail thiếu dữ liệu, auth, upload và provider contract.
 - Fixture evaluation chỉ gồm label targets; không còn scene/hazard cases.
-- Release APK chỉ đạt khi thử trên Android thật với ít nhất: HSD rõ, HSD mờ, tên
-  sản phẩm, thành phần và hướng dẫn; kết quả phải liên quan ảnh, `provider=groq`,
-  `demo_mode=false`.
+- Release APK chỉ đạt khi thử trên Android thật với nhãn đầy đủ, thiếu bảng dinh
+  dưỡng, đường cao/thấp và ảnh mờ; kết quả phải liên quan ảnh, `provider=groq`,
+  `demo_mode=false`, đồng thời thiếu dữ liệu phải trả `uncertain`.
 - TalkBack, autofocus, camera lifecycle và cold-start phải được kiểm tra trên ít
   nhất hai thiết bị trước khi gọi là ổn định.

@@ -4,6 +4,7 @@ import { File } from "expo-file-system";
 
 import type {
   ApiResponse,
+  HealthCondition,
   LabelAnalysis,
   LabelTarget,
 } from "../domain/types";
@@ -186,6 +187,7 @@ export function analyzeLabel(
   uris: readonly string[],
   requestedField: LabelTarget,
   ocrText?: string,
+  healthCondition?: HealthCondition,
 ): Promise<LabelAnalysis> {
   if (uris.length < 1 || uris.length > 3) {
     throw new ApiClientError(
@@ -196,6 +198,7 @@ export function analyzeLabel(
   return postImage("/v1/analyze-label", uris, {
     locale: "vi-VN",
     requested_field: requestedField,
+    ...(healthCondition ? { health_condition: healthCondition } : {}),
     ...(ocrText ? { ocr_text: ocrText } : {}),
   });
 }

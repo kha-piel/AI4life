@@ -46,6 +46,7 @@ async def evaluate() -> dict[str, Any]:
             row.get("ocr_text"),
             "vi-VN",
             requested_field,
+            None,
         )
         actual = getattr(result, expected["field"])
         match = actual == expected["value"]

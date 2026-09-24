@@ -5,6 +5,13 @@ import { getLabelTargetOption } from "../domain/labelTargets";
 import type { LabelAnalysis } from "../domain/types";
 import { ActionButton } from "./ActionButton";
 
+const HEALTH_VERDICT_LABELS = {
+  consider: "Có thể cân nhắc",
+  limit: "Nên hạn chế",
+  avoid: "Nên tránh",
+  uncertain: "Chưa đủ dữ liệu",
+} as const;
+
 type Props = {
   result: LabelAnalysis;
   onReadAgain: () => void;
@@ -46,6 +53,37 @@ export function ResultCard({ result, onReadAgain, onRetry }: Props) {
             </Text>
           ) : null}
         </>
+      ) : null}
+
+      {result.health_assessment ? (
+        <View style={styles.healthCard}>
+          <Text style={styles.healthTitle}>Phân tích cho người tiểu đường</Text>
+          <Text style={styles.verdict} accessibilityRole="header">
+            {HEALTH_VERDICT_LABELS[result.health_assessment.verdict]}
+          </Text>
+          <Text style={styles.detail}>{result.health_assessment.summary}</Text>
+          {result.health_assessment.reasons.map((reason, index) => (
+            <Text key={`${reason}-${index}`} style={styles.healthReason}>
+              • {reason}
+            </Text>
+          ))}
+          {result.health_assessment.ingredient_assessments.length > 0 ? (
+            <Text style={styles.healthSubtitle}>Đánh giá thành phần</Text>
+          ) : null}
+          {result.health_assessment.ingredient_assessments.map((item, index) => (
+            <Text key={`${item.ingredient}-${index}`} style={styles.healthReason}>
+              • {item.ingredient} — {HEALTH_VERDICT_LABELS[item.verdict]}: {item.reason}
+            </Text>
+          ))}
+          {result.health_assessment.missing_information.length > 0 ? (
+            <Text style={styles.warning}>
+              Cần đọc thêm: {result.health_assessment.missing_information.join(", ")}
+            </Text>
+          ) : null}
+          <Text style={styles.medicalNote}>
+            Đây là sàng lọc từ nhãn, không thay thế tư vấn của bác sĩ hoặc chuyên gia dinh dưỡng.
+          </Text>
+        </View>
       ) : null}
 
       {result.evidence_text.length > 0 ? (
@@ -105,6 +143,18 @@ const styles = StyleSheet.create({
   body: { color: "#ffffff", fontSize: 20, lineHeight: 29 },
   detail: { color: "#dcecff", fontSize: 18, lineHeight: 26 },
   warning: { color: "#ffe476", fontSize: 19, lineHeight: 27 },
+  healthCard: {
+    backgroundColor: "#12385e",
+    borderLeftColor: "#ffd400",
+    borderLeftWidth: 5,
+    padding: 14,
+    gap: 8,
+  },
+  healthTitle: { color: "#ffffff", fontSize: 20, fontWeight: "900" },
+  healthSubtitle: { color: "#ffffff", fontSize: 18, fontWeight: "800" },
+  verdict: { color: "#ffe476", fontSize: 24, fontWeight: "900" },
+  healthReason: { color: "#ffffff", fontSize: 17, lineHeight: 25 },
+  medicalNote: { color: "#c6dff7", fontSize: 15, lineHeight: 21 },
   note: { color: "#c6dff7", fontSize: 16, lineHeight: 23 },
   actions: { flexDirection: "row", gap: 12, marginTop: 8 },
   action: { flex: 1 },

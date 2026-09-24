@@ -16,15 +16,12 @@ import { StatusBar } from "expo-status-bar";
 
 import { ActionButton } from "./src/components/ActionButton";
 import { ResultCard } from "./src/components/ResultCard";
-import {
-  getLabelTargetOption,
-  LABEL_TARGET_OPTIONS,
-} from "./src/domain/labelTargets";
+import { getLabelTargetOption } from "./src/domain/labelTargets";
 import {
   MAX_LABEL_IMAGES,
   mergeImageUris,
 } from "./src/domain/imageSelection";
-import type { LabelTarget } from "./src/domain/types";
+import type { HealthCondition, LabelTarget } from "./src/domain/types";
 import {
   analyzeLabel,
   ApiClientError,
@@ -68,43 +65,59 @@ async function takePictureReliably(camera: CameraView): Promise<string> {
 }
 
 function HomeScreen({
-  onSelect,
+  onStart,
+  healthCondition,
+  onHealthConditionChange,
   onChangeAccessCode,
 }: {
-  onSelect: (target: LabelTarget) => void;
+  onStart: () => void;
+  healthCondition: HealthCondition | null;
+  onHealthConditionChange: (condition: HealthCondition | null) => void;
   onChangeAccessCode?: () => void;
 }) {
   return (
     <ScrollView
       contentContainerStyle={styles.home}
-      accessibilityLabel="Màn hình chọn thông tin cần đọc"
+      accessibilityLabel="Màn hình đọc và phân tích nhãn"
     >
       <Text style={styles.eyebrow}>AIVISION</Text>
       <Text style={styles.heading} accessibilityRole="header">
-        Bạn muốn đọc gì?
+        Đọc và phân tích nhãn
       </Text>
       <Text style={styles.lead}>
-        Chọn một mục trước khi mở camera. Ứng dụng sẽ chỉ đọc đúng thông tin bạn
-        cần.
+        Chụp các mặt của cùng một sản phẩm. AIVision sẽ đọc tên, hạn sử dụng,
+        thành phần, hướng dẫn và bảng dinh dưỡng trong một lượt.
       </Text>
 
+      <Text style={styles.sectionTitle}>Phân tích theo sức khỏe</Text>
+      <Text style={styles.sectionHint}>
+        Không bắt buộc. Thông tin này chỉ được gửi trong lượt phân tích hiện tại.
+      </Text>
       <View style={styles.homeActions}>
-        {LABEL_TARGET_OPTIONS.map((option, index) => (
-          <ActionButton
-            key={option.value}
-            label={option.label}
-            hint={option.hint}
-            onPress={() => onSelect(option.value)}
-            variant={index === 0 ? "primary" : "secondary"}
-          />
-        ))}
+        <ActionButton
+          label={healthCondition === null ? "Không chọn bệnh nền — đã chọn" : "Không chọn bệnh nền"}
+          hint="Chỉ đọc toàn bộ thông tin trên nhãn"
+          onPress={() => onHealthConditionChange(null)}
+          variant={healthCondition === null ? "primary" : "secondary"}
+        />
+        <ActionButton
+          label={healthCondition === "diabetes" ? "Tiểu đường — đã chọn" : "Tiểu đường"}
+          hint="Phân tích carbohydrate, đường, chất xơ và thành phần nhìn thấy"
+          onPress={() => onHealthConditionChange("diabetes")}
+          variant={healthCondition === "diabetes" ? "primary" : "secondary"}
+        />
+        <ActionButton
+          label="Bắt đầu đọc nhãn"
+          hint="Mở camera để chụp hoặc chọn ảnh sản phẩm"
+          onPress={onStart}
+        />
       </View>
 
       <View style={styles.safetyCard}>
-        <Text style={styles.safetyTitle}>Chỉ đọc nội dung nhìn thấy</Text>
+        <Text style={styles.safetyTitle}>Hỗ trợ sàng lọc, không chẩn đoán</Text>
         <Text style={styles.safetyText}>
-          Ứng dụng không suy đoán hạn sử dụng, thành phần hoặc hướng dẫn y tế. Nếu
-          ảnh chưa rõ, hãy chụp gần phần chữ cần đọc.
+          Kết quả sức khỏe chỉ dựa trên nhãn nhìn thấy và không thay thế bác sĩ.
+          Để phân tích tiểu đường, hãy chụp rõ cả bảng dinh dưỡng và thành phần.
         </Text>
       </View>
 
@@ -195,9 +208,11 @@ function AccessSetupScreen({ onAuthorized }: { onAuthorized: () => void }) {
 
 function LabelCameraScreen({
   target,
+  healthCondition,
   onBack,
 }: {
   target: LabelTarget;
+  healthCondition: HealthCondition | null;
   onBack: () => void;
 }) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -302,7 +317,12 @@ function LabelCameraScreen({
     busyRef.current = true;
     dispatch({ type: "ANALYZE" });
     try {
-      const result = await analyzeLabel(selectedImages, target);
+      const result = await analyzeLabel(
+        selectedImages,
+        target,
+        undefined,
+        healthCondition ?? undefined,
+      );
       dispatch({
         type: "SUCCESS",
         result,
@@ -319,7 +339,7 @@ function LabelCameraScreen({
     } finally {
       busyRef.current = false;
     }
-  }, [reportError, selectedImages, target]);
+  }, [healthCondition, reportError, selectedImages, target]);
 
   useEffect(() => {
     let active = true;
@@ -513,6 +533,7 @@ function LabelCameraScreen({
 
 export default function App() {
   const [selectedTarget, setSelectedTarget] = useState<LabelTarget | null>(null);
+  const [healthCondition, setHealthCondition] = useState<HealthCondition | null>(null);
   const [accessState, setAccessState] = useState<
     "loading" | "required" | "authorized"
   >(APP_AUTH_REQUIRED ? "loading" : "authorized");
@@ -550,7 +571,9 @@ export default function App() {
       <StatusBar style="light" />
       {selectedTarget === null ? (
         <HomeScreen
-          onSelect={setSelectedTarget}
+          onStart={() => setSelectedTarget("all")}
+          healthCondition={healthCondition}
+          onHealthConditionChange={setHealthCondition}
           onChangeAccessCode={
             APP_AUTH_REQUIRED
               ? () => {
@@ -565,6 +588,7 @@ export default function App() {
       ) : (
         <LabelCameraScreen
           target={selectedTarget}
+          healthCondition={healthCondition}
           onBack={() => setSelectedTarget(null)}
         />
       )}
@@ -599,6 +623,8 @@ const styles = StyleSheet.create({
   heading: { color: "#ffffff", fontSize: 36, fontWeight: "900" },
   lead: { color: "#dcecff", fontSize: 21, lineHeight: 31 },
   homeActions: { gap: 14, marginVertical: 8 },
+  sectionTitle: { color: "#ffffff", fontSize: 22, fontWeight: "900" },
+  sectionHint: { color: "#c6dff7", fontSize: 16, lineHeight: 23 },
   safetyCard: {
     borderLeftWidth: 5,
     borderLeftColor: "#ffd400",

@@ -3,15 +3,15 @@
 MVP AIVision biến smartphone thành trợ lý thị giác cho người khiếm thị, người
 thị lực kém và người lớn tuổi.
 
-- **Đọc đúng mục cần thiết:** chọn hạn sử dụng, tên sản phẩm, thành phần, hướng
-  dẫn sử dụng hoặc đọc tất cả trước khi chụp.
+- **Một luồng đọc đầy đủ:** đọc tên, hạn sử dụng, thành phần, hướng dẫn và bảng
+  dinh dưỡng trong cùng một lượt.
 - **Nhiều góc nhãn:** chụp hoặc chọn từ thư viện tối đa 3 ảnh của cùng một sản
   phẩm rồi phân tích trong một request.
-- **Phản hồi ngắn:** chỉ nghe thông tin đã chọn, kèm chữ nhìn thấy và yêu cầu
-  chụp lại khi ảnh không đủ rõ.
+- **Sàng lọc tiểu đường tùy chọn:** phân tích khẩu phần, tổng carbohydrate, đường,
+  chất xơ và thành phần nhìn thấy; từ chối kết luận khi thiếu bảng dinh dưỡng.
 
-> Ứng dụng chỉ đọc nội dung nhìn thấy trên nhãn; không đưa chẩn đoán, tự suy
-> diễn liều dùng, thành phần hoặc lời khuyên y tế.
+> Đánh giá sức khỏe chỉ hỗ trợ sàng lọc từ nhãn, không chẩn đoán, không hướng dẫn
+> insulin/thuốc và không thay thế bác sĩ hoặc chuyên gia dinh dưỡng.
 
 ## Trạng thái MVP
 
@@ -20,7 +20,7 @@ thị lực kém và người lớn tuổi.
 - OpenAI Responses vẫn là provider tùy chọn qua cùng interface.
 - Live mode fail-closed: thiếu key hoặc external AI lỗi thì trả lỗi, không tráo dữ liệu mẫu.
 - Fixture chỉ dùng cho test/evaluation offline, không nằm trong đường chạy Android.
-- Backend tests: 29 test.
+- Backend tests: 35 test.
 - Mobile tests: 15 test.
 - Evaluation: synthetic fixtures, chỉ chứng minh pipeline chứ không chứng minh
   accuracy ngoài đời.
@@ -131,7 +131,9 @@ Evaluation report được ghi vào `evals/reports/latest.{json,md}`.
 - `GET /health`
 - `GET /v1/access-check`: kiểm tra mã mời trong cloud mode.
 - `POST /v1/analyze-label`: multipart một `image` cũ hoặc tối đa ba trường
-  `images`, `requested_field`, tùy chọn `ocr_text`, `locale`.
+  `images`, `requested_field`, tùy chọn `health_condition=diabetes`, `ocr_text`,
+  `locale`. APK mới luôn dùng `requested_field=all`; các target cũ được giữ để
+  tương thích APK đã phát hành.
 - OpenAPI: http://localhost:8000/docs
 
 Ảnh hợp lệ: JPEG, PNG hoặc WEBP, tối đa 5 MB mỗi ảnh, 12 MB tổng và 3 ảnh mỗi lượt. API kiểm
@@ -164,10 +166,10 @@ envelope nhất quán.
   Android thật.
 - Nút chụp chờ `onCameraReady`, capture lỗi được retry một lần và request mạng
   tạm lỗi được retry có giới hạn; vẫn cần kiểm thử nhiều thiết bị thật.
-- Chưa có OCR on-device native adapter; MVP hiện dùng model vision để OCR và
-  trích xuất mục đã chọn trong cùng một request.
+- Chưa có OCR on-device native adapter; MVP hiện dùng model vision để OCR, trích
+  xuất toàn bộ nhãn và đánh giá có cấu trúc trong cùng một request.
 - Dataset hiện là synthetic và không đại diện cho nhãn tiếng Việt ngoài đời.
-- Điều khiển chọn mục bằng giọng nói chưa nằm trong vertical slice; bản hiện tại
-  dùng nút lớn tương thích TalkBack để ưu tiên độ ổn định APK.
+- Phân tích bệnh nền hiện chỉ hỗ trợ tiểu đường; chưa hỗ trợ tăng huyết áp, bệnh
+  thận, dị ứng hoặc lời khuyên cá nhân hóa theo thuốc/liều điều trị.
 - npm audit báo 10 advisory mức moderate trong Expo build toolchain; npm chỉ đề
   xuất downgrade phá vỡ xuống Expo 46, nên chưa tự động áp dụng.

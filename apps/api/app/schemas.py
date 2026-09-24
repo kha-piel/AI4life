@@ -19,6 +19,58 @@ class LabelTarget(StrEnum):
     ALL = "all"
 
 
+class HealthCondition(StrEnum):
+    DIABETES = "diabetes"
+
+
+class HealthVerdict(StrEnum):
+    CONSIDER = "consider"
+    LIMIT = "limit"
+    AVOID = "avoid"
+    UNCERTAIN = "uncertain"
+
+
+class NutritionFacts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    serving_size: str | None
+    total_carbohydrate_g: float | None = Field(ge=0)
+    total_sugars_g: float | None = Field(ge=0)
+    added_sugars_g: float | None = Field(ge=0)
+    dietary_fiber_g: float | None = Field(ge=0)
+    sodium_mg: float | None = Field(ge=0)
+
+
+def empty_nutrition_facts() -> NutritionFacts:
+    return NutritionFacts(
+        serving_size=None,
+        total_carbohydrate_g=None,
+        total_sugars_g=None,
+        added_sugars_g=None,
+        dietary_fiber_g=None,
+        sodium_mg=None,
+    )
+
+
+class IngredientAssessment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ingredient: str = Field(min_length=1, max_length=100)
+    verdict: HealthVerdict
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class HealthAssessment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    condition: HealthCondition
+    verdict: HealthVerdict
+    summary: str = Field(min_length=1, max_length=500)
+    reasons: list[str] = Field(max_length=6)
+    ingredient_assessments: list[IngredientAssessment] = Field(max_length=12)
+    missing_information: list[str] = Field(max_length=6)
+
+
 class LabelProviderResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -30,6 +82,8 @@ class LabelProviderResult(BaseModel):
     warnings: list[str] = Field(max_length=8)
     unreadable_fields: list[str] = Field(max_length=8)
     evidence_text: list[str] = Field(max_length=12)
+    nutrition_facts: NutritionFacts
+    health_assessment: HealthAssessment | None
     confidence: Confidence
     speech_text: str = Field(min_length=1, max_length=800)
 

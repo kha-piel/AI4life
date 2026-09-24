@@ -19,8 +19,12 @@ from app.providers.factory import validate_provider_settings
 from app.schemas import (
     ApiResponse,
     AccessData,
+    HealthAssessment,
+    HealthCondition,
+    HealthVerdict,
     HealthData,
     LabelAnalysis,
+    LabelProviderResult,
     LabelTarget,
 )
 from app.validation import validate_image
@@ -36,6 +40,63 @@ def _provider_metadata(provider: VisionProvider) -> tuple[str, bool]:
     name = getattr(provider, "last_provider", provider.name)
     demo_mode = getattr(provider, "last_demo_mode", provider.demo_mode)
     return name, demo_mode
+
+
+def _apply_health_safety(
+    result: LabelProviderResult, health_condition: HealthCondition | None
+) -> LabelProviderResult:
+    if health_condition is None:
+        return result.model_copy(update={"health_assessment": None})
+
+    assessment = result.health_assessment
+    facts = result.nutrition_facts
+    has_minimum_diabetes_evidence = (
+        bool(facts.serving_size) and facts.total_carbohydrate_g is not None
+    )
+    if health_condition == HealthCondition.DIABETES and not has_minimum_diabetes_evidence:
+        missing = list(assessment.missing_information if assessment else [])
+        if not facts.serving_size and "Khẩu phần" not in missing:
+            missing.append("Khẩu phần")
+        if facts.total_carbohydrate_g is None and "Tổng carbohydrate" not in missing:
+            missing.append("Tổng carbohydrate")
+        safe_assessment = HealthAssessment(
+            condition=health_condition,
+            verdict=HealthVerdict.UNCERTAIN,
+            summary=(
+                "Chưa đủ khẩu phần và tổng carbohydrate để đánh giá sản phẩm "
+                "cho người tiểu đường."
+            ),
+            reasons=assessment.reasons if assessment else [],
+            ingredient_assessments=(
+                assessment.ingredient_assessments if assessment else []
+            ),
+            missing_information=missing[:6],
+        )
+        speech_text = result.speech_text
+        if "chưa đủ" not in speech_text.casefold() or "tiểu đường" not in speech_text.casefold():
+            speech_text += (
+                " Chưa đủ bảng dinh dưỡng để đánh giá cho người tiểu đường; "
+                "hãy chụp rõ khẩu phần và tổng carbohydrate."
+            )
+        return result.model_copy(
+            update={
+                "health_assessment": safe_assessment,
+                "speech_text": speech_text[:800],
+            }
+        )
+
+    if assessment is None:
+        assessment = HealthAssessment(
+            condition=health_condition,
+            verdict=HealthVerdict.UNCERTAIN,
+            summary="AI không tạo được đánh giá sức khỏe đáng tin cậy từ nhãn này.",
+            reasons=[],
+            ingredient_assessments=[],
+            missing_information=["Đánh giá sức khỏe có căn cứ"],
+        )
+    elif assessment.condition != health_condition:
+        assessment = assessment.model_copy(update={"condition": health_condition})
+    return result.model_copy(update={"health_assessment": assessment})
 
 
 async def _read_image(
@@ -94,6 +155,7 @@ async def analyze_label(
     ocr_text: Annotated[str | None, Form()] = None,
     locale: Annotated[str, Form()] = "vi-VN",
     requested_field: Annotated[LabelTarget, Form()] = LabelTarget.ALL,
+    health_condition: Annotated[HealthCondition | None, Form()] = None,
 ):
     started = time.monotonic()
     uploads = ([image] if image is not None else []) + (images or [])
@@ -115,7 +177,7 @@ async def analyze_label(
     try:
         result = await asyncio.wait_for(
             provider.analyze_label(
-                image_inputs, ocr_text, locale, requested_field
+                image_inputs, ocr_text, locale, requested_field, health_condition
             ),
             timeout=settings.provider_timeout_seconds * 2,
         )
@@ -139,16 +201,18 @@ async def analyze_label(
     provider_name, demo_mode = _provider_metadata(provider)
     elapsed_ms = round((time.monotonic() - started) * 1000)
     logger.info(
-        "label_analysis_completed request_id=%s requested_field=%s image_count=%s provider=%s demo_mode=%s latency_ms=%s",
+        "label_analysis_completed request_id=%s requested_field=%s image_count=%s health_assessment_requested=%s provider=%s demo_mode=%s latency_ms=%s",
         request.state.request_id,
         requested_field.value,
         len(image_inputs),
+        health_condition is not None,
         provider_name,
         demo_mode,
         elapsed_ms,
     )
+    safe_result = _apply_health_safety(result, health_condition)
     analysis = LabelAnalysis(
-        **result.model_dump(),
+        **safe_result.model_dump(),
         requested_field=requested_field,
         image_count=len(image_inputs),
         request_id=request.state.request_id,

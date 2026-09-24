@@ -144,17 +144,20 @@ Google Play sử dụng profile `production` mặc định để tạo AAB, khô
 1. Cài APK từ EAS URL và mở app khi không chạy Metro trên máy phát triển.
 2. Nhập sai mã: phải báo mã không hợp lệ.
 3. Nhập đúng mã: app nói “Đã kết nối máy chủ an toàn”.
-4. Lần lượt chọn **Hạn sử dụng**, **Tên sản phẩm**, **Thành phần** và **Hướng
-   dẫn sử dụng**, rồi thử một ảnh, ba ảnh và chọn ảnh từ thư viện. Kết quả phải chỉ đọc mục đã chọn,
-   có `provider=groq`, `demo_mode=false` và nội dung khớp ảnh.
-5. Tắt Docker Desktop/máy phát triển rồi thử lại: app vẫn phải hoạt động.
-6. Thu hồi hash của mã vừa thử trên Render: lần gọi tiếp theo phải trả `401`.
+4. Chọn **Tiểu đường**, chụp mặt trước, thành phần và bảng dinh dưỡng rồi phân
+   tích ba ảnh. Kết quả phải đọc toàn bộ nhãn, có verdict/lý do khớp con số nhìn
+   thấy, `provider=groq` và `demo_mode=false`.
+5. Thử lại nhưng không chụp bảng dinh dưỡng: verdict phải là **Chưa đủ dữ liệu**.
+6. Tắt Docker Desktop/máy phát triển rồi thử lại: app vẫn phải hoạt động.
+7. Thu hồi hash của mã vừa thử trên Render: lần gọi tiếp theo phải trả `401`.
 
 ## 8. Vận hành, riêng tư và giới hạn
 
 - Render và Groq phải được xem là processors của ảnh camera; chỉ chụp khi người
   dùng đồng ý và tránh mặt người/thông tin nhạy cảm nếu không cần thiết.
 - Backend xử lý ảnh trong bộ nhớ, không có database và không log ảnh/OCR/token.
+- Lựa chọn bệnh nền không được lưu; backend chỉ log cờ có yêu cầu đánh giá, không
+  log giá trị bệnh nền cụ thể.
 - Mã mời là bearer credential. SecureStore bảo vệ khi lưu trên thiết bị, nhưng
   người dùng vẫn có thể chủ động chia sẻ mã; thu hồi hash khi mất thiết bị.
 - Rate limit hiện nằm trong memory của một instance. Nếu scale nhiều instance,

@@ -2,8 +2,8 @@
 
 ## 1. Giả thuyết demo
 
-Một người dùng mới có thể chọn đúng mục cần đọc, chụp nhãn và nghe câu trả lời
-ngắn có bằng chứng trong dưới 60 giây.
+Một người dùng mới có thể chọn phân tích tiểu đường, chụp đủ các mặt nhãn và nghe
+kết luận thận trọng có bằng chứng trong dưới 90 giây.
 
 ## 2. Chuẩn bị
 
@@ -16,39 +16,30 @@ ngắn có bằng chứng trong dưới 60 giây.
 
 ### Vật mẫu
 
-- Một sản phẩm có HSD đủ ngày/tháng/năm nhìn rõ.
-- Một sản phẩm chỉ có tháng/năm.
-- Một nhãn có mục Thành phần.
-- Một nhãn có Hướng dẫn sử dụng.
-- Một nhãn mờ hoặc không có HSD để chứng minh hệ thống từ chối suy đoán.
+- Một thực phẩm có mặt trước, thành phần và bảng dinh dưỡng nhìn rõ.
+- Một nhãn ghi rõ khẩu phần, tổng carbohydrate, đường bổ sung và chất xơ.
+- Một nhãn không chụp bảng dinh dưỡng để chứng minh hệ thống từ chối kết luận.
 
-## 3. Demo chính — 60 giây
+## 3. Demo chính — 90 giây
 
 ### Cảnh 1: Nỗi đau — 10 giây
 
-“Người thị lực kém thường chỉ cần biết một thông tin, nhưng ứng dụng lại đọc cả
-đoạn dài. AIVision cho chọn mục trước rồi chỉ đọc đúng phần cần thiết.”
+“Người thị lực kém không chỉ cần đọc nhãn mà còn cần hiểu thành phần nào đáng lưu
+ý với bệnh nền. AIVision đọc toàn bộ nhãn và giải thích dựa trên bằng chứng.”
 
-### Cảnh 2: Hạn sử dụng — 25 giây
+### Cảnh 2: Đọc và phân tích cho người tiểu đường — 45 giây
 
-1. TalkBack đọc màn hình “Bạn muốn đọc gì?”.
-2. Chọn nút lớn “Hạn sử dụng”.
-3. App hướng dẫn đưa chữ HSD/EXP vào khung.
-4. Chụp mặt trước và mặt có HSD, hoặc chọn hai ảnh có sẵn từ thư viện.
-5. Kiểm tra dòng “Đã chọn 2/3 ảnh”, rồi nhấn “Phân tích 2 ảnh”.
-6. App đọc một câu, ví dụ “Hạn sử dụng: ngày 15 tháng 10 năm 2027”.
-7. Chỉ ra số ảnh và dòng “Chữ nhìn thấy” làm bằng chứng.
+1. TalkBack đọc màn hình “Đọc và phân tích nhãn”.
+2. Chọn “Tiểu đường”.
+3. Chụp mặt trước, thành phần và bảng dinh dưỡng của cùng sản phẩm.
+4. Kiểm tra “Đã chọn 3/3 ảnh”, rồi nhấn “Phân tích 3 ảnh”.
+5. App đọc thông tin nhãn, verdict và lý do có con số trên nhãn.
+6. Chỉ ra phần “Phân tích cho người tiểu đường” và disclaimer.
 
-### Cảnh 3: Thành phần hoặc tên sản phẩm — 15 giây
+### Cảnh 3: Guardrail thiếu dữ liệu — 25 giây
 
-1. Quay lại và chọn một mục khác.
-2. Chụp phần tương ứng trên nhãn.
-3. App chỉ đọc mục đã chọn, không lặp lại toàn bộ nhãn.
-
-### Cảnh 4: Guardrail — 10 giây
-
-Chụp nhãn không có HSD hoặc quá mờ. App phải nói chưa đọc rõ và yêu cầu chụp lại,
-không biến ngày sản xuất thành hạn sử dụng.
+Chỉ chụp mặt trước hoặc che tổng carbohydrate. App phải trả “Chưa đủ dữ liệu” và
+yêu cầu chụp khẩu phần/tổng carbohydrate, không tự nói sản phẩm an toàn.
 
 ## 4. Demo fallback
 
@@ -63,10 +54,10 @@ không biến ngày sản xuất thành hạn sử dụng.
 
 ## 5. Bộ test tối thiểu trước demo
 
-- 5 ảnh HSD rõ với định dạng Việt/Anh khác nhau.
-- 3 ảnh có NSX và HSD để kiểm tra phân biệt đúng.
-- 3 ảnh không có HSD để kiểm tra abstention.
-- 3 nhãn thành phần và 3 nhãn hướng dẫn.
+- 5 bộ ảnh đủ mặt trước, thành phần và bảng dinh dưỡng.
+- 3 bộ thiếu khẩu phần hoặc tổng carbohydrate để kiểm tra abstention.
+- Nhãn có chữ “không đường” nhưng vẫn có tổng carbohydrate.
+- Nhãn có đường bổ sung và nhãn có chất xơ.
 - Ảnh thẳng, nghiêng, tối, lóa và mờ.
 - Chụp liên tục 10 lần để kiểm tra camera lifecycle.
 - Trộn một ảnh camera và hai ảnh thư viện; kiểm tra ảnh thứ tư bị chặn.
@@ -75,10 +66,10 @@ không biến ngày sản xuất thành hạn sử dụng.
 
 ## 6. Câu hỏi BGK dự kiến
 
-### “Tại sao không đọc toàn bộ nhãn?”
+### “Tại sao bỏ các nút đọc riêng?”
 
-Âm thanh dài làm tăng tải nhận thức. Chọn mục trước giúp người dùng nhận đúng thông
-tin cần thiết nhanh hơn và prompt tập trung hơn.
+Các mục riêng trùng với “Đọc tất cả”. Một hành trình duy nhất giảm thao tác, trong
+khi kết quả vẫn chia rõ tên, hạn sử dụng, thành phần, hướng dẫn và sức khỏe.
 
 ### “Tại sao cần AI?”
 
@@ -87,8 +78,9 @@ ngữ cảnh; schema, target prompt và validation deterministic giới hạn đ
 
 ### “Nếu AI đọc sai thuốc thì sao?”
 
-Ứng dụng chỉ đọc nội dung có bằng chứng, thể hiện confidence, từ chối khi không rõ
-và không đưa lời khuyên y tế. Đây là trợ lý đọc nhãn, không phải hệ thống cấp thuốc.
+Ứng dụng chỉ đọc nội dung có bằng chứng, từ chối khi không rõ và không hướng dẫn
+insulin/thuốc. Với tiểu đường, code bắt buộc phải thấy khẩu phần và tổng carbohydrate
+trước khi cho kết luận khác “chưa đủ dữ liệu”.
 
 ### “Có hoạt động offline không?”
 
