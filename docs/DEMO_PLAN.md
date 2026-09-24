@@ -2,115 +2,92 @@
 
 ## 1. Giả thuyết demo
 
-Một người dùng mới có thể dùng TalkBack để đọc đúng thông tin quan trọng trên nhãn và nhận một cảnh báo môi trường hữu ích trong dưới 90 giây.
+Một người dùng mới có thể chọn đúng mục cần đọc, chụp nhãn và nghe câu trả lời
+ngắn có bằng chứng trong dưới 60 giây.
 
 ## 2. Chuẩn bị
 
 ### Thiết bị
 
-- Một điện thoại Android đã cài bản demo và bật TalkBack.
-- Pin trên 50%, âm lượng đủ lớn, tắt thông báo gây gián đoạn.
-- Mạng chính và một hotspot dự phòng.
-- Bản quay màn hình dự phòng cho hai luồng.
+- Điện thoại Android đã cài APK mới và bật TalkBack.
+- Pin trên 50%, âm lượng đủ lớn, quyền camera đã cấp.
+- Mạng chính và hotspot dự phòng.
+- Mở `/health` trước demo nếu dùng Render Free.
 
 ### Vật mẫu
 
-- Chai nước mắm có nhãn lớn.
-- Chai dầu gội có hình dáng gần giống để chứng minh phân biệt bằng nhãn.
-- Hộp thuốc demo còn hạn với ngày tháng nhìn rõ; không dùng thông tin sức khỏe thật.
-- Một ghế hoặc thùng carton làm vật cản.
-- Ảnh fixture đi kèm kết quả mong đợi để chạy regression trước khi lên sân khấu.
+- Một sản phẩm có HSD đủ ngày/tháng/năm nhìn rõ.
+- Một sản phẩm chỉ có tháng/năm.
+- Một nhãn có mục Thành phần.
+- Một nhãn có Hướng dẫn sử dụng.
+- Một nhãn mờ hoặc không có HSD để chứng minh hệ thống từ chối suy đoán.
 
-### Preflight
-
-1. Xác nhận API health và quota.
-2. Chạy bộ eval ảnh demo.
-3. Xóa lịch sử/log có thể chứa dữ liệu.
-4. Kiểm tra TTS `vi-VN`, camera permission, rung và TalkBack.
-5. Chạy demo đúng vị trí, ánh sáng và mạng của sân khấu.
-
-## 3. Demo chính — 75 đến 90 giây
+## 3. Demo chính — 60 giây
 
 ### Cảnh 1: Nỗi đau — 10 giây
 
-“Với người thị lực kém, hai chai có hình dáng giống nhau có thể dẫn đến một lựa chọn sai. Đôi Mắt AI biến chiếc điện thoại sẵn có thành trợ lý đọc nhãn bằng giọng nói.”
+“Người thị lực kém thường chỉ cần biết một thông tin, nhưng ứng dụng lại đọc cả
+đoạn dài. Đôi Mắt AI cho chọn mục trước rồi chỉ đọc đúng phần cần thiết.”
 
-### Cảnh 2: Đọc nhãn — 35 giây
+### Cảnh 2: Hạn sử dụng — 25 giây
 
-1. Mở ứng dụng bằng TalkBack.
-2. Chạm nút lớn “Đọc nhãn”.
-3. Đưa hộp thuốc hoặc chai vào khung; ứng dụng hướng dẫn căn camera.
-4. Chụp ảnh.
-5. Ứng dụng đọc:
-   - tên hoặc loại sản phẩm;
-   - hạn sử dụng nếu nhìn rõ;
-   - hướng dẫn xuất hiện trên nhãn;
-   - phần chưa đọc được.
-6. Nhấn “Đọc toàn bộ chữ” hoặc “Chụp lại”.
+1. TalkBack đọc màn hình “Bạn muốn đọc gì?”.
+2. Chọn nút lớn “Hạn sử dụng”.
+3. App hướng dẫn đưa chữ HSD/EXP vào khung.
+4. Chờ nút chụp được bật rồi chụp.
+5. App đọc một câu, ví dụ “Hạn sử dụng: ngày 15 tháng 10 năm 2027”.
+6. Chỉ ra dòng “Chữ nhìn thấy” làm bằng chứng.
 
-Thông điệp cần nói: hệ thống không tự nghĩ ra liều thuốc; mọi thông tin quan trọng phải có bằng chứng từ nhãn.
+### Cảnh 3: Thành phần hoặc tên sản phẩm — 15 giây
 
-### Cảnh 3: Thám hiểm — 25 giây
+1. Quay lại và chọn một mục khác.
+2. Chụp phần tương ứng trên nhãn.
+3. App chỉ đọc mục đã chọn, không lặp lại toàn bộ nhãn.
 
-1. Chuyển sang “Thám hiểm”.
-2. Hướng camera về vật cản đã chuẩn bị.
-3. Nhận rung và câu ngắn “Có vật cản ở phía trước”.
-4. Nhấn “Dừng”.
+### Cảnh 4: Guardrail — 10 giây
 
-Thông điệp cần nói: đây là cảnh báo cảnh vật theo nhịp cho môi trường trong nhà, không thay thế công cụ hỗ trợ di chuyển.
-
-### Cảnh 4: Bằng chứng — 15 giây
-
-Hiển thị evaluation card:
-
-- số ảnh đã kiểm thử;
-- độ chính xác tên/loại sản phẩm;
-- độ chính xác hạn sử dụng;
-- latency p50/p95;
-- số trường hợp hệ thống từ chối đúng khi ảnh không rõ;
-- trạng thái kiểm thử TalkBack.
+Chụp nhãn không có HSD hoặc quá mờ. App phải nói chưa đọc rõ và yêu cầu chụp lại,
+không biến ngày sản xuất thành hạn sử dụng.
 
 ## 4. Demo fallback
 
 | Sự cố | Xử lý |
 |---|---|
-| Mạng chậm | Dùng OCR on-device, nói rõ phần phân tích nâng cao cần mạng |
-| API lỗi | Chuyển sang video quay trước, không giả là live |
-| Camera không focus | Dùng vật mẫu chữ lớn hoặc ảnh fixture được gắn nhãn “Dữ liệu demo” |
-| TTS không phát | Dùng màn hình chữ lớn và TalkBack |
-| Thám hiểm không phát hiện | Dùng cảnh dự phòng có vật cản lớn; nếu vẫn lỗi, trình bày failure state |
+| Render đang ngủ | Mở `/health`, chờ `status=ok`, thử lại |
+| Provider lỗi | Hiển thị failure state hoặc video quay trước; không giả là live |
+| Camera chưa sẵn sàng | Chờ hướng dẫn đổi từ “Đang khởi động camera” rồi mới chụp |
+| Camera không focus | Chụp gần hơn, đủ sáng, giữ yên hoặc dùng vật mẫu chữ lớn |
+| TTS không phát | Dùng chữ lớn và TalkBack |
 
 ## 5. Bộ test tối thiểu trước demo
 
-- 10 ảnh nhãn: góc thẳng, nghiêng, tối, lóa, mờ.
-- 5 ngày hết hạn với các định dạng khác nhau.
-- 3 ảnh không có ngày hết hạn để kiểm tra hệ thống không bịa.
-- 5 cảnh có vật cản thuộc tập MVP.
-- 3 cảnh không có nguy cơ để đo false alarm.
-- Camera permission bị từ chối.
-- Mất mạng và provider timeout.
-- TalkBack focus theo đúng thứ tự.
-- Nút chính có label, role, state và vùng chạm tối thiểu.
+- 5 ảnh HSD rõ với định dạng Việt/Anh khác nhau.
+- 3 ảnh có NSX và HSD để kiểm tra phân biệt đúng.
+- 3 ảnh không có HSD để kiểm tra abstention.
+- 3 nhãn thành phần và 3 nhãn hướng dẫn.
+- Ảnh thẳng, nghiêng, tối, lóa và mờ.
+- Chụp liên tục 10 lần để kiểm tra camera lifecycle.
+- Render cold-start, mất mạng và provider timeout.
+- TalkBack focus, label, role, state và vùng chạm.
 
 ## 6. Câu hỏi BGK dự kiến
 
-### “Làm sao chứng minh AI hoạt động tốt?”
+### “Tại sao không đọc toàn bộ nhãn?”
 
-Trả evaluation card, bộ ảnh đại diện, baseline OCR và kết quả theo từng nhóm khó; không chỉ đưa một accuracy tổng.
-
-### “Nếu AI đọc sai thuốc thì sao?”
-
-Ứng dụng chỉ đọc chữ có bằng chứng, thể hiện confidence, từ chối khi không rõ và không đưa lời khuyên y tế. Đây là trợ lý đọc nhãn, không phải bác sĩ hay hệ thống cấp thuốc.
+Âm thanh dài làm tăng tải nhận thức. Chọn mục trước giúp người dùng nhận đúng thông
+tin cần thiết nhanh hơn và prompt tập trung hơn.
 
 ### “Tại sao cần AI?”
 
-OCR xử lý chữ; vision model giúp xác định loại vật phẩm, ghép bố cục nhãn và tạo tóm tắt dễ nghe. Phần có thể giải bằng rule vẫn dùng rule.
+Nhãn có bố cục, góc chụp và định dạng đa dạng. Model vision thực hiện OCR và ghép
+ngữ cảnh; schema, target prompt và validation deterministic giới hạn đầu ra.
+
+### “Nếu AI đọc sai thuốc thì sao?”
+
+Ứng dụng chỉ đọc nội dung có bằng chứng, thể hiện confidence, từ chối khi không rõ
+và không đưa lời khuyên y tế. Đây là trợ lý đọc nhãn, không phải hệ thống cấp thuốc.
 
 ### “Có hoạt động offline không?”
 
-OCR và TTS có thể hoạt động cục bộ khi model đã có trên thiết bị; hiểu ngữ cảnh nâng cao của MVP cần mạng. Roadmap đưa detection sang on-device.
-
-### “Có thay thế gậy dẫn đường không?”
-
-Không. Thám hiểm chỉ cung cấp tín hiệu bổ sung. Thiết kế và thông điệp sản phẩm cấm tuyên bố thay thế công cụ hỗ trợ di chuyển.
-
+TTS có thể chạy cục bộ; OCR/hiểu nhãn của MVP cần mạng. Roadmap là ML Kit OCR
+on-device, sau đó chỉ gửi text cần cấu trúc hóa khi cần.

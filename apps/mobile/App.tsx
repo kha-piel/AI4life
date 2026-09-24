@@ -15,17 +15,12 @@ import { StatusBar } from "expo-status-bar";
 import { ActionButton } from "./src/components/ActionButton";
 import { ResultCard } from "./src/components/ResultCard";
 import {
-  filterNovelHazards,
-  type HazardMemory,
-} from "./src/domain/hazardDedup";
-import type {
-  CaptureMode,
-  LabelAnalysis,
-  SceneAnalysis,
-} from "./src/domain/types";
+  getLabelTargetOption,
+  LABEL_TARGET_OPTIONS,
+} from "./src/domain/labelTargets";
+import type { LabelTarget } from "./src/domain/types";
 import {
   analyzeLabel,
-  analyzeScene,
   ApiClientError,
   APP_AUTH_REQUIRED,
   validateAccessCode,
@@ -37,7 +32,6 @@ import {
 } from "./src/services/accessToken";
 import {
   signalError,
-  signalHazard,
   speak,
   stopSpeaking,
 } from "./src/services/feedback";
@@ -46,49 +40,68 @@ import {
   visionReducer,
 } from "./src/state/visionReducer";
 
-type Screen = "home" | CaptureMode;
+const CAMERA_RETRY_DELAY_MS = 400;
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function takePictureReliably(camera: CameraView): Promise<string> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const photo = await camera.takePictureAsync({ quality: 0.62 });
+      if (photo?.uri) return photo.uri;
+      lastError = new Error("Camera did not return an image URI");
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt === 1) await wait(CAMERA_RETRY_DELAY_MS);
+  }
+  throw lastError ?? new Error("Camera capture failed");
+}
 
 function HomeScreen({
   onSelect,
   onChangeAccessCode,
 }: {
-  onSelect: (screen: CaptureMode) => void;
+  onSelect: (target: LabelTarget) => void;
   onChangeAccessCode?: () => void;
 }) {
   return (
     <ScrollView
       contentContainerStyle={styles.home}
-      accessibilityLabel="Màn hình chính Đôi Mắt AI"
+      accessibilityLabel="Màn hình chọn thông tin cần đọc"
     >
-      <Text style={styles.eyebrow}>AI4LIFE · MVP</Text>
+      <Text style={styles.eyebrow}>ĐÔI MẮT AI</Text>
       <Text style={styles.heading} accessibilityRole="header">
-        Đôi Mắt AI
+        Bạn muốn đọc gì?
       </Text>
       <Text style={styles.lead}>
-        Đọc nhãn và nhận biết một số nguy cơ trong nhà bằng camera điện thoại.
+        Chọn một mục trước khi mở camera. Ứng dụng sẽ chỉ đọc đúng thông tin bạn
+        cần.
       </Text>
 
       <View style={styles.homeActions}>
-        <ActionButton
-          label="Đọc nhãn"
-          hint="Mở camera để đọc chữ trên chai lọ, bao bì hoặc hộp thuốc"
-          onPress={() => onSelect("label")}
-        />
-        <ActionButton
-          label="Thám hiểm"
-          hint="Mở chế độ quét cảnh và cảnh báo nguy cơ giới hạn"
-          onPress={() => onSelect("scene")}
-          variant="secondary"
-        />
+        {LABEL_TARGET_OPTIONS.map((option, index) => (
+          <ActionButton
+            key={option.value}
+            label={option.label}
+            hint={option.hint}
+            onPress={() => onSelect(option.value)}
+            variant={index === 0 ? "primary" : "secondary"}
+          />
+        ))}
       </View>
 
       <View style={styles.safetyCard}>
-        <Text style={styles.safetyTitle}>Lưu ý an toàn</Text>
+        <Text style={styles.safetyTitle}>Chỉ đọc nội dung nhìn thấy</Text>
         <Text style={styles.safetyText}>
-          Ứng dụng không thay thế gậy, chó dẫn đường, người hỗ trợ hoặc tư vấn y
-          tế. Hãy kiểm tra lại khi thông tin quan trọng không rõ.
+          Ứng dụng không suy đoán hạn sử dụng, thành phần hoặc hướng dẫn y tế. Nếu
+          ảnh chưa rõ, hãy chụp gần phần chữ cần đọc.
         </Text>
       </View>
+
       {onChangeAccessCode ? (
         <ActionButton
           label="Đổi mã truy cập"
@@ -142,8 +155,7 @@ function AccessSetupScreen({ onAuthorized }: { onAuthorized: () => void }) {
           Nhập mã truy cập
         </Text>
         <Text style={styles.lead}>
-          Mỗi người thử nghiệm dùng một mã riêng. Mã được lưu an toàn trên thiết
-          bị và không nằm trong file APK.
+          Mã được lưu an toàn trên thiết bị và không nằm trong file APK.
         </Text>
         <TextInput
           accessibilityLabel="Mã truy cập"
@@ -175,42 +187,46 @@ function AccessSetupScreen({ onAuthorized }: { onAuthorized: () => void }) {
   );
 }
 
-function VisionScreen({
-  mode,
+function LabelCameraScreen({
+  target,
   onBack,
 }: {
-  mode: CaptureMode;
+  target: LabelTarget;
   onBack: () => void;
 }) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
-  const hazardMemoryRef = useRef<HazardMemory>({});
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [state, dispatch] = useReducer(visionReducer, initialVisionState);
-  const [sceneDisclaimerAccepted, setSceneDisclaimerAccepted] = useState(false);
-  const [sceneEnabled, setSceneEnabled] = useState(false);
+  const option = getLabelTargetOption(target);
 
   const reportError = useCallback(async (error: unknown) => {
     const message =
       error instanceof ApiClientError
         ? error.message
-        : "Không thể xử lý ảnh. Vui lòng thử lại.";
+        : "Không chụp được ảnh. Hãy giữ điện thoại ổn định rồi thử lại.";
     dispatch({ type: "ERROR", message });
     await signalError();
     await speak(message);
   }, []);
 
   const captureLabel = useCallback(async () => {
-    if (busyRef.current || !cameraRef.current) return;
+    if (busyRef.current) return;
+    if (!cameraRef.current || !cameraReady) {
+      await reportError(
+        new ApiClientError("Camera chưa sẵn sàng. Hãy đợi một chút rồi thử lại.", "camera_not_ready"),
+      );
+      return;
+    }
+
     busyRef.current = true;
     dispatch({ type: "CAPTURE" });
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.72,
-      });
-      if (!photo?.uri) throw new Error("Camera did not return an image");
+      const uri = await takePictureReliably(cameraRef.current);
       dispatch({ type: "ANALYZE" });
-      const result = await analyzeLabel(photo.uri);
+      const result = await analyzeLabel(uri, target);
       dispatch({
         type: "SUCCESS",
         result,
@@ -227,53 +243,7 @@ function VisionScreen({
     } finally {
       busyRef.current = false;
     }
-  }, [reportError]);
-
-  const captureScene = useCallback(async () => {
-    if (busyRef.current || !cameraRef.current || !sceneEnabled) return;
-    busyRef.current = true;
-    try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.52,
-      });
-      if (!photo?.uri) throw new Error("Camera did not return an image");
-      const result = await analyzeScene(photo.uri);
-      const { novel, nextMemory } = filterNovelHazards(
-        result.hazards,
-        hazardMemoryRef.current,
-        Date.now(),
-      );
-      hazardMemoryRef.current = nextMemory;
-      dispatch({
-        type: "SUCCESS",
-        result,
-        lowConfidence:
-          result.hazards.length > 0 &&
-          result.hazards.every((hazard) => hazard.confidence === "low"),
-      });
-
-      for (const hazard of novel) {
-        await signalHazard(hazard.urgency);
-      }
-      if (novel.length > 0) {
-        await speak(novel.map((hazard) => hazard.speech_text).join(" "));
-      }
-    } catch (error) {
-      setSceneEnabled(false);
-      await reportError(error);
-    } finally {
-      busyRef.current = false;
-    }
-  }, [reportError, sceneEnabled]);
-
-  useEffect(() => {
-    if (!sceneEnabled) return;
-    void captureScene();
-    const timer = setInterval(() => {
-      void captureScene();
-    }, 3_000);
-    return () => clearInterval(timer);
-  }, [captureScene, sceneEnabled]);
+  }, [cameraReady, reportError, target]);
 
   useEffect(
     () => () => {
@@ -283,35 +253,9 @@ function VisionScreen({
   );
 
   const goBack = useCallback(() => {
-    setSceneEnabled(false);
     void stopSpeaking();
     onBack();
   }, [onBack]);
-
-  if (mode === "scene" && !sceneDisclaimerAccepted) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.disclaimer}>
-          <Text style={styles.heading} accessibilityRole="header">
-            Trước khi Thám hiểm
-          </Text>
-          <Text style={styles.lead}>
-            Chế độ này phân tích ảnh theo nhịp, có thể bỏ sót hoặc cảnh báo sai.
-            Không dùng để thay thế công cụ hỗ trợ di chuyển.
-          </Text>
-          <ActionButton
-            label="Tôi hiểu, bắt đầu"
-            hint="Xác nhận giới hạn và mở camera"
-            onPress={() => {
-              setSceneDisclaimerAccepted(true);
-              dispatch({ type: "GUIDE" });
-            }}
-          />
-          <ActionButton label="Quay lại" onPress={goBack} variant="secondary" />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   if (permission === null) {
     return (
@@ -330,7 +274,7 @@ function VisionScreen({
             Cần quyền camera
           </Text>
           <Text style={styles.lead}>
-            Ảnh chỉ được gửi khi bạn chủ động chụp hoặc bật Thám hiểm.
+            Ảnh chỉ được gửi khi bạn chủ động nhấn nút chụp.
           </Text>
           <ActionButton
             label="Cho phép camera"
@@ -343,8 +287,14 @@ function VisionScreen({
   }
 
   const isBusy = state.phase === "capturing" || state.phase === "analyzing";
-  const isLabelResult =
-    state.result !== null && "speech_text" in state.result;
+  const statusText = cameraError
+    ? cameraError
+    : isBusy
+      ? state.phase === "capturing"
+        ? "Đang chụp ảnh…"
+        : "Đang đọc nhãn…"
+      : state.error ??
+        (cameraReady ? option.cameraGuide : "Đang khởi động camera…");
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -352,13 +302,13 @@ function VisionScreen({
       <View style={styles.topBar}>
         <ActionButton
           label="Quay lại"
-          hint="Trở về màn hình chính"
+          hint="Chọn mục thông tin khác"
           onPress={goBack}
           variant="secondary"
           style={styles.backButton}
         />
         <Text style={styles.modeTitle} accessibilityRole="header">
-          {mode === "label" ? "Đọc nhãn" : "Thám hiểm"}
+          {option.label}
         </Text>
       </View>
 
@@ -367,6 +317,14 @@ function VisionScreen({
         style={styles.camera}
         facing="back"
         autofocus="on"
+        onCameraReady={() => {
+          setCameraError(null);
+          setCameraReady(true);
+        }}
+        onMountError={(event) => {
+          setCameraReady(false);
+          setCameraError(`Không mở được camera: ${event.message}`);
+        }}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
@@ -378,54 +336,26 @@ function VisionScreen({
         contentContainerStyle={styles.controlPanelContent}
       >
         <Text style={styles.status} accessibilityLiveRegion="assertive">
-          {isBusy
-            ? state.phase === "capturing"
-              ? "Đang chụp ảnh…"
-              : "Đang phân tích…"
-            : state.error ??
-              (mode === "label"
-                ? "Đưa nhãn vào giữa camera rồi nhấn Chụp và đọc."
-                : sceneEnabled
-                  ? "Đang quét cảnh mỗi 3 giây."
-                  : "Nhấn Bắt đầu quét khi đã sẵn sàng.")}
+          {statusText}
         </Text>
 
-        {mode === "label" ? (
-          <ActionButton
-            label="Chụp và đọc"
-            hint="Chụp nhãn hiện tại và đọc kết quả"
-            onPress={() => void captureLabel()}
-            disabled={isBusy}
-          />
-        ) : (
-          <ActionButton
-            label={sceneEnabled ? "Dừng quét" : "Bắt đầu quét"}
-            hint={
-              sceneEnabled
-                ? "Dừng gửi ảnh để phân tích"
-                : "Bắt đầu phân tích một ảnh mỗi 3 giây"
-            }
-            onPress={() => {
-              const next = !sceneEnabled;
-              setSceneEnabled(next);
-              dispatch({ type: next ? "SCAN_START" : "STOP" });
-              if (!next) void stopSpeaking();
-            }}
-            variant={sceneEnabled ? "danger" : "primary"}
-          />
-        )}
+        <ActionButton
+          label={
+            isBusy
+              ? state.phase === "capturing"
+                ? "Đang chụp…"
+                : "Đang đọc…"
+              : `Chụp ${option.label.toLocaleLowerCase("vi-VN")}`
+          }
+          hint={`Chụp nhãn để đọc ${option.label.toLocaleLowerCase("vi-VN")}`}
+          onPress={() => void captureLabel()}
+          disabled={!cameraReady || isBusy || cameraError !== null}
+        />
 
         {state.result ? (
           <ResultCard
             result={state.result}
-            onReadAgain={() => {
-              const text = isLabelResult
-                ? (state.result as LabelAnalysis).speech_text
-                : (state.result as SceneAnalysis).hazards
-                    .map((hazard) => hazard.speech_text)
-                    .join(" ");
-              void speak(text || "Chưa phát hiện nguy cơ trong ảnh hiện tại.");
-            }}
+            onReadAgain={() => void speak(state.result!.speech_text)}
             onRetry={() => dispatch({ type: "RESET" })}
           />
         ) : null}
@@ -435,7 +365,7 @@ function VisionScreen({
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const [selectedTarget, setSelectedTarget] = useState<LabelTarget | null>(null);
   const [accessState, setAccessState] = useState<
     "loading" | "required" | "authorized"
   >(APP_AUTH_REQUIRED ? "loading" : "authorized");
@@ -471,19 +401,25 @@ export default function App() {
   return (
     <SafeAreaView style={styles.app}>
       <StatusBar style="light" />
-      {screen === "home" ? (
+      {selectedTarget === null ? (
         <HomeScreen
-          onSelect={setScreen}
+          onSelect={setSelectedTarget}
           onChangeAccessCode={
             APP_AUTH_REQUIRED
               ? () => {
-                  void clearAccessToken().then(() => setAccessState("required"));
+                  void clearAccessToken().then(() => {
+                    setSelectedTarget(null);
+                    setAccessState("required");
+                  });
                 }
               : undefined
           }
         />
       ) : (
-        <VisionScreen mode={screen} onBack={() => setScreen("home")} />
+        <LabelCameraScreen
+          target={selectedTarget}
+          onBack={() => setSelectedTarget(null)}
+        />
       )}
     </SafeAreaView>
   );
@@ -513,9 +449,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     fontSize: 15,
   },
-  heading: { color: "#ffffff", fontSize: 38, fontWeight: "900" },
+  heading: { color: "#ffffff", fontSize: 36, fontWeight: "900" },
   lead: { color: "#dcecff", fontSize: 21, lineHeight: 31 },
-  homeActions: { gap: 16, marginVertical: 8 },
+  homeActions: { gap: 14, marginVertical: 8 },
   safetyCard: {
     borderLeftWidth: 5,
     borderLeftColor: "#ffd400",
@@ -550,7 +486,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   backButton: { minHeight: 48, paddingHorizontal: 14 },
-  modeTitle: { color: "#ffffff", fontSize: 25, fontWeight: "900" },
+  modeTitle: { color: "#ffffff", fontSize: 24, fontWeight: "900", flex: 1 },
   camera: {
     flex: 1,
     minHeight: 260,
@@ -558,14 +494,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   reticle: {
-    width: "76%",
-    height: "58%",
+    width: "82%",
+    height: "62%",
     borderWidth: 4,
     borderColor: "#ffd400",
     borderRadius: 24,
   },
   controlPanel: {
-    maxHeight: "52%",
+    maxHeight: "55%",
     backgroundColor: "#06121f",
   },
   controlPanelContent: {

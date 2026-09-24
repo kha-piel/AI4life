@@ -8,7 +8,7 @@ Mỗi record dùng `fixture_id` thay cho ảnh người dùng. Để đánh giá
 1. thêm ảnh đã được phép sử dụng vào một dataset riêng không commit nếu có dữ liệu nhạy cảm;
 2. gắn nhãn độc lập trước khi chạy model;
 3. giữ tập test tách khỏi quá trình sửa prompt;
-4. báo cáo kết quả theo ánh sáng, độ mờ, loại bao bì và loại nguy cơ;
+4. báo cáo kết quả theo requested field, ánh sáng, độ mờ và loại bao bì;
 5. không gộp kết quả synthetic với kết quả ảnh thật.
 
 Chạy bộ fixture:

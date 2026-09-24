@@ -45,4 +45,4 @@ services:
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     volumes:
       - ./evals/reports:/app/evals/reports
-    command: ["python", "evals/run_eval.py"]
+    command: ["python", "-m", "evals.run_eval"]

@@ -29,10 +29,9 @@ Giữ nguyên bộ skill và tài liệu hiện có. Nếu project chưa có cod
 
 Xây ứng dụng mobile Android-first hỗ trợ người khiếm thị, người thị lực kém và người lớn tuổi:
 
-1. **Đọc nhãn:** chụp vật phẩm, trích xuất chữ, nhận diện loại hoặc tên, đọc hạn sử dụng và nội dung quan trọng bằng tiếng Việt.
-2. **Thám hiểm MVP:** quét cảnh theo nhịp, cảnh báo một tập nguy cơ giới hạn bằng giọng nói và rung.
+1. **Đọc nhãn theo mục tiêu:** người dùng chọn hạn sử dụng, tên sản phẩm, thành phần, hướng dẫn sử dụng hoặc đọc tất cả trước khi chụp.
 
-Hoàn thành một vertical slice thật cho cả hai luồng. Ưu tiên độ tin cậy của demo hơn số lượng tính năng.
+Hoàn thành một vertical slice thật cho luồng này. Ưu tiên độ tin cậy của camera và câu trả lời ngắn hơn số lượng tính năng.
 
 ## Stack mặc định
 
@@ -49,7 +48,7 @@ Nếu một dependency không tương thích với phiên bản hiện tại, ch
 
 ### Mobile
 
-- Home có hai nút lớn: “Đọc nhãn” và “Thám hiểm”.
+- Home có năm nút lớn cho các mục đọc nhãn; lựa chọn được gửi xuyên suốt tới prompt.
 - Tất cả control có `accessibilityLabel`, role, state và hint phù hợp.
 - Hỗ trợ TalkBack, Dynamic Type, tương phản cao và vùng chạm tối thiểu 48 dp.
 - Luồng camera có trạng thái permission, hướng dẫn, loading, thành công, confidence thấp, lỗi và retry.
@@ -61,7 +60,6 @@ Nếu một dependency không tương thích với phiên bản hiện tại, ch
 
 - `GET /health`
 - `POST /v1/analyze-label`
-- `POST /v1/analyze-scene`
 - Validate MIME, dung lượng tối đa 5 MB và timeout.
 - Chuẩn hóa response đúng contracts trong `docs/ARCHITECTURE.md`.
 - Có `VisionProvider` protocol/interface và ít nhất:
@@ -77,14 +75,13 @@ Nếu một dependency không tương thích với phiên bản hiện tại, ch
 - Không suy đoán ngày hết hạn.
 - Không sáng tác hướng dẫn hoặc liều dùng thuốc.
 - Khi confidence thấp, dùng ngôn ngữ không chắc chắn và yêu cầu chụp lại.
-- Scene mode không nói khoảng cách chính xác hoặc chuyển động “đang tiến lại gần” nếu chưa có depth/tracking.
-- Tối đa ba cảnh báo mỗi response; mobile deduplicate để tránh dồn âm thanh.
+- Chỉ trả lời mục `requested_field`; field không liên quan phải rỗng/null.
 
 ## UI states bắt buộc
 
-`idle → requesting_permission → guiding → capturing → analyzing → success | low_confidence | error`
+`idle → requesting_permission → camera_ready → capturing → analyzing → success | low_confidence | error`
 
-Thám hiểm thêm `scanning → paused → stopped`. State transition phải rõ, không để hai request phân tích chạy đồng thời.
+State transition phải rõ, khóa nút trước `onCameraReady` và không để hai request phân tích chạy đồng thời.
 
 ## Dữ liệu và evaluation
 
@@ -92,15 +89,14 @@ Tạo:
 
 - `evals/fixtures/` chứa manifest và hướng dẫn thêm ảnh; không đưa ảnh cá nhân.
 - `evals/dataset.jsonl` với schema cho expected fields.
-- Script chạy eval label/scene, xuất JSON và Markdown.
-- Metrics: field accuracy, abstention correctness, false alarm, latency p50/p95 và error breakdown.
-- Unit tests cho parser ngày tháng, schema, confidence policy, dedup cảnh báo và provider timeout.
+- Script chạy eval từng label target, xuất JSON và Markdown.
+- Metrics: target field accuracy, abstention correctness, latency p50/p95 và error breakdown.
+- Unit tests cho parser ngày tháng, target contract, schema, confidence policy và provider timeout.
 
 Không dựng số liệu đẹp giả. Nếu chưa có đủ ảnh thật, report phải ghi rõ cỡ mẫu và giới hạn.
 
 ## Safety và privacy
 
-- Hiện disclaimer ngắn khi lần đầu vào Thám hiểm: tính năng không thay thế gậy hoặc người hỗ trợ.
 - Không đưa chẩn đoán hay lời khuyên y tế.
 - Không lưu ảnh theo mặc định.
 - Thêm rate limit, CORS cấu hình theo env và request ID.
@@ -121,7 +117,7 @@ Không dựng số liệu đẹp giả. Nếu chưa có đủ ảnh thật, repo
 Chỉ coi là hoàn thành khi:
 
 1. Cài dependency thành công theo README.
-2. Mobile mở được và đi hết hai luồng bằng fixture provider.
+2. Mobile chọn được cả năm mục và đi hết luồng bằng fixture provider.
 3. Provider thật có thể bật bằng env mà không sửa code.
 4. API tests, mobile unit tests, typecheck và lint đều pass.
 5. Eval command chạy và tạo report.

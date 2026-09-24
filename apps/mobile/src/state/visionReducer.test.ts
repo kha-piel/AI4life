@@ -5,9 +5,11 @@ import { initialVisionState, visionReducer } from "./visionReducer";
 
 const result: LabelAnalysis = {
   request_id: "req-1",
+  requested_field: "product_name",
   product_type: "food",
   product_name: "Nước mắm",
   expiry_date: null,
+  ingredients: [],
   visible_instructions: [],
   warnings: [],
   unreadable_fields: ["hạn sử dụng"],
@@ -40,4 +42,3 @@ describe("visionReducer", () => {
     expect(visionReducer(success, { type: "RESET" })).toEqual(initialVisionState);
   });
 });
-

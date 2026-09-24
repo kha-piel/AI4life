@@ -3,13 +3,13 @@
 MVP AI4Life biến smartphone thành trợ lý thị giác cho người khiếm thị, người
 thị lực kém và người lớn tuổi.
 
-- **Đọc nhãn:** chụp bao bì, nghe tên sản phẩm, hạn sử dụng và phần chữ quan
-  trọng có bằng chứng.
-- **Thám hiểm:** quét cảnh mỗi ba giây, cảnh báo một tập nguy cơ giới hạn bằng
-  tiếng Việt và rung.
+- **Đọc đúng mục cần thiết:** chọn hạn sử dụng, tên sản phẩm, thành phần, hướng
+  dẫn sử dụng hoặc đọc tất cả trước khi chụp.
+- **Phản hồi ngắn:** chỉ nghe thông tin đã chọn, kèm chữ nhìn thấy và yêu cầu
+  chụp lại khi ảnh không đủ rõ.
 
-> Thám hiểm không thay thế gậy, chó dẫn đường hoặc người hỗ trợ. Ứng dụng không
-> đưa chẩn đoán, liều dùng hoặc lời khuyên y tế.
+> Ứng dụng chỉ đọc nội dung nhìn thấy trên nhãn; không đưa chẩn đoán, tự suy
+> diễn liều dùng, thành phần hoặc lời khuyên y tế.
 
 ## Trạng thái MVP
 
@@ -18,7 +18,7 @@ thị lực kém và người lớn tuổi.
 - OpenAI Responses vẫn là provider tùy chọn qua cùng interface.
 - Live mode fail-closed: thiếu key hoặc external AI lỗi thì trả lỗi, không tráo dữ liệu mẫu.
 - Fixture chỉ dùng cho test/evaluation offline, không nằm trong đường chạy Android.
-- Backend tests: 22 test.
+- Backend tests: 25 test.
 - Mobile tests: 10 test.
 - Evaluation: synthetic fixtures, chỉ chứng minh pipeline chứ không chứng minh
   accuracy ngoài đời.
@@ -104,7 +104,7 @@ và `OPENAI_MODEL`; adapter OpenAI gửi Responses request với `store: false`.
 
 ## Chia sẻ APK qua Internet
 
-Đường chạy ổn định cho nhóm thử nghiệm là APK EAS Internal Distribution gọi
+Đường chạy chia sẻ cho nhóm thử nghiệm là APK EAS Internal Distribution gọi
 backend Docker trên Render qua HTTPS. Cloud mode yêu cầu mã mời riêng cho từng
 người; mã được lưu bằng Android SecureStore và backend chỉ giữ SHA-256 hash.
 
@@ -128,8 +128,8 @@ Evaluation report được ghi vào `evals/reports/latest.{json,md}`.
 
 - `GET /health`
 - `GET /v1/access-check`: kiểm tra mã mời trong cloud mode.
-- `POST /v1/analyze-label`: multipart `image`, tùy chọn `ocr_text`, `locale`.
-- `POST /v1/analyze-scene`: multipart `image`, tùy chọn `locale`.
+- `POST /v1/analyze-label`: multipart `image`, `requested_field`, tùy chọn
+  `ocr_text`, `locale`.
 - OpenAPI: http://localhost:8000/docs
 
 Ảnh hợp lệ: JPEG, PNG hoặc WEBP, tối đa 5 MB. API kiểm tra cả MIME và file
@@ -158,8 +158,12 @@ signature, rate-limit theo IP, gắn request ID và trả error envelope nhất 
 ## Giới hạn còn lại
 
 - Chưa kiểm thử camera, TalkBack, TTS và haptics trên thiết bị Android thật.
-- Chưa có OCR on-device native adapter; MVP hiện gửi ảnh tới backend vision.
+- Nút chụp chờ `onCameraReady`, capture lỗi được retry một lần và request mạng
+  tạm lỗi được retry có giới hạn; vẫn cần kiểm thử nhiều thiết bị thật.
+- Chưa có OCR on-device native adapter; MVP hiện dùng model vision để OCR và
+  trích xuất mục đã chọn trong cùng một request.
 - Dataset hiện là synthetic và không đại diện cho nhãn tiếng Việt ngoài đời.
-- Scene mode không đo khoảng cách, depth hoặc hướng chuyển động.
+- Điều khiển chọn mục bằng giọng nói chưa nằm trong vertical slice; bản hiện tại
+  dùng nút lớn tương thích TalkBack để ưu tiên độ ổn định APK.
 - npm audit báo 10 advisory mức moderate trong Expo build toolchain; npm chỉ đề
   xuất downgrade phá vỡ xuống Expo 46, nên chưa tự động áp dụng.

@@ -5,7 +5,7 @@ import { File } from "expo-file-system";
 import type {
   ApiResponse,
   LabelAnalysis,
-  SceneAnalysis,
+  LabelTarget,
 } from "../domain/types";
 import { getAccessToken } from "./accessToken";
 import { resolveApiBaseUrl } from "./apiConfig";
@@ -30,6 +30,26 @@ export class ApiClientError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 90_000;
+const MAX_ATTEMPTS = 2;
+const TRANSIENT_STATUS_CODES = new Set([502, 503, 504]);
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function createImageBody(
+  uri: string,
+  fields: Record<string, string>,
+): FormData {
+  const body = new FormData();
+  body.append("image", new File(uri), "capture.jpg");
+  for (const [key, value] of Object.entries(fields)) {
+    body.append(key, value);
+  }
+  return body;
+}
+
 async function postImage<T>(
   endpoint: string,
   uri: string,
@@ -50,32 +70,52 @@ async function postImage<T>(
     );
   }
 
-  const body = new FormData();
-  const image = new File(uri);
-  body.append("image", image, "capture.jpg");
-  for (const [key, value] of Object.entries(fields)) {
-    body.append(key, value);
+  let response: Awaited<ReturnType<typeof expoFetch>> | null = null;
+  let lastNetworkError: unknown = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      response = await expoFetch(`${API_BASE_URL}${endpoint}`, {
+        method: "POST",
+        body: createImageBody(uri, fields),
+        headers: {
+          Accept: "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        signal: controller.signal,
+      });
+      if (
+        attempt < MAX_ATTEMPTS &&
+        TRANSIENT_STATUS_CODES.has(response.status)
+      ) {
+        await wait(1_500);
+        continue;
+      }
+      break;
+    } catch (error) {
+      lastNetworkError = error;
+      if (attempt < MAX_ATTEMPTS) {
+        await wait(1_500);
+        continue;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
-  let response: Awaited<ReturnType<typeof expoFetch>>;
-  try {
-    response = await expoFetch(`${API_BASE_URL}${endpoint}`, {
-      method: "POST",
-      body,
-      headers: {
-        Accept: "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-    });
-  } catch (error) {
+  if (!response) {
     console.error("API request failed before receiving a response", {
       endpoint,
       apiBaseUrl: API_BASE_URL,
       imageUriScheme: uri.split(":", 1)[0] || "unknown",
-      cause: error instanceof Error ? error.message : String(error),
+      cause:
+        lastNetworkError instanceof Error
+          ? lastNetworkError.message
+          : String(lastNetworkError),
     });
     throw new ApiClientError(
-      "Không kết nối được máy chủ. Hãy kiểm tra mạng và địa chỉ API.",
+      "Máy chủ miễn phí đang khởi động hoặc mạng chưa ổn định. Hãy đợi một phút rồi thử lại.",
       "network_error",
     );
   }
@@ -137,13 +177,14 @@ export async function validateAccessCode(accessCode: string): Promise<void> {
   }
 }
 
-export function analyzeLabel(uri: string, ocrText?: string): Promise<LabelAnalysis> {
+export function analyzeLabel(
+  uri: string,
+  requestedField: LabelTarget,
+  ocrText?: string,
+): Promise<LabelAnalysis> {
   return postImage("/v1/analyze-label", uri, {
     locale: "vi-VN",
+    requested_field: requestedField,
     ...(ocrText ? { ocr_text: ocrText } : {}),
   });
-}
-
-export function analyzeScene(uri: string): Promise<SceneAnalysis> {
-  return postImage("/v1/analyze-scene", uri, { locale: "vi-VN" });
 }

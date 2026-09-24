@@ -12,7 +12,7 @@ from app.providers.fallback import FallbackVisionProvider
 from app.providers.factory import build_provider
 from app.providers.groq import GroqVisionProvider, _extract_message_content
 from app.providers.openai import OpenAIVisionProvider, _extract_output_text
-from app.schemas import LabelProviderResult
+from app.schemas import LabelProviderResult, LabelTarget
 from tests.conftest import JPEG_BYTES
 
 
@@ -20,10 +20,9 @@ class FailingProvider:
     name = "failing"
     demo_mode = False
 
-    async def analyze_label(self, image_bytes, mime_type, ocr_text, locale):
-        raise VisionProviderError("offline")
-
-    async def analyze_scene(self, image_bytes, mime_type, locale):
+    async def analyze_label(
+        self, image_bytes, mime_type, ocr_text, locale, requested_field
+    ):
         raise VisionProviderError("offline")
 
 
@@ -31,10 +30,9 @@ class HangingProvider:
     name = "hanging"
     demo_mode = False
 
-    async def analyze_label(self, image_bytes, mime_type, ocr_text, locale):
-        await asyncio.sleep(1)
-
-    async def analyze_scene(self, image_bytes, mime_type, locale):
+    async def analyze_label(
+        self, image_bytes, mime_type, ocr_text, locale, requested_field
+    ):
         await asyncio.sleep(1)
 
 
@@ -69,7 +67,7 @@ async def test_external_failure_uses_labeled_fixture_fallback() -> None:
     provider = FallbackVisionProvider(FailingProvider(), timeout_seconds=0.1)
 
     result = await provider.analyze_label(
-        JPEG_BYTES, "image/jpeg", "PANADOL", "vi-VN"
+        JPEG_BYTES, "image/jpeg", "PANADOL", "vi-VN", LabelTarget.ALL
     )
 
     assert provider.last_provider == "fixture-fallback"
@@ -82,7 +80,7 @@ async def test_external_timeout_uses_labeled_fixture_fallback() -> None:
     provider = FallbackVisionProvider(HangingProvider(), timeout_seconds=0.001)
 
     result = await provider.analyze_label(
-        JPEG_BYTES, "image/jpeg", "DẦU GỘI", "vi-VN"
+        JPEG_BYTES, "image/jpeg", "DẦU GỘI", "vi-VN", LabelTarget.ALL
     )
 
     assert provider.last_provider == "fixture-fallback"
@@ -120,6 +118,7 @@ async def test_groq_provider_sends_exact_image_in_json_mode(monkeypatch) -> None
         "product_type": "food",
         "product_name": "Nhãn từ ảnh camera",
         "expiry_date": None,
+        "ingredients": [],
         "visible_instructions": [],
         "warnings": [],
         "unreadable_fields": ["expiry_date"],
@@ -166,7 +165,7 @@ async def test_groq_provider_sends_exact_image_in_json_mode(monkeypatch) -> None
     )
 
     result = await provider.analyze_label(
-        JPEG_BYTES, "image/jpeg", None, "vi-VN"
+        JPEG_BYTES, "image/jpeg", None, "vi-VN", LabelTarget.EXPIRY_DATE
     )
 
     body = captured["body"]
@@ -174,6 +173,7 @@ async def test_groq_provider_sends_exact_image_in_json_mode(monkeypatch) -> None
     assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
     assert body["response_format"] == {"type": "json_object"}
     assert "JSON phải khớp schema này" in body["messages"][0]["content"]
+    assert "expiry_date" in body["messages"][1]["content"][0]["text"]
     assert base64.b64decode(image_url.split(",", 1)[1]) == JPEG_BYTES
     assert result.product_name == "Nhãn từ ảnh camera"
 
@@ -185,6 +185,7 @@ async def test_openai_provider_sends_exact_image_without_storage(monkeypatch) ->
         "product_type": "food",
         "product_name": "Nhãn từ ảnh camera",
         "expiry_date": None,
+        "ingredients": [],
         "visible_instructions": [],
         "warnings": [],
         "unreadable_fields": ["expiry_date"],
@@ -235,7 +236,7 @@ async def test_openai_provider_sends_exact_image_without_storage(monkeypatch) ->
     )
 
     result = await provider.analyze_label(
-        JPEG_BYTES, "image/jpeg", None, "vi-VN"
+        JPEG_BYTES, "image/jpeg", None, "vi-VN", LabelTarget.PRODUCT_NAME
     )
 
     image_url = captured["body"]["input"][0]["content"][1]["image_url"]
@@ -251,6 +252,40 @@ def test_expiry_date_rejects_impossible_month() -> None:
             product_type="medicine",
             product_name="Sample",
             expiry_date="2027-13",
+            ingredients=[],
+            visible_instructions=[],
+            warnings=[],
+            unreadable_fields=[],
+            evidence_text=[],
+            confidence="low",
+            speech_text="Không rõ.",
+        )
+
+
+def test_expiry_date_accepts_real_full_date() -> None:
+    result = LabelProviderResult(
+        product_type="food",
+        product_name="Sample",
+        expiry_date="2027-10-15",
+        ingredients=[],
+        visible_instructions=[],
+        warnings=[],
+        unreadable_fields=[],
+        evidence_text=["EXP 15/10/2027"],
+        confidence="high",
+        speech_text="Hạn sử dụng ngày 15 tháng 10 năm 2027.",
+    )
+
+    assert result.expiry_date == "2027-10-15"
+
+
+def test_expiry_date_rejects_impossible_full_date() -> None:
+    with pytest.raises(ValidationError):
+        LabelProviderResult(
+            product_type="food",
+            product_name="Sample",
+            expiry_date="2027-02-30",
+            ingredients=[],
             visible_instructions=[],
             warnings=[],
             unreadable_fields=[],

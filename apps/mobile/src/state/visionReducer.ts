@@ -1,4 +1,4 @@
-import type { LabelAnalysis, SceneAnalysis } from "../domain/types";
+import type { LabelAnalysis } from "../domain/types";
 
 export type VisionPhase =
   | "idle"
@@ -14,7 +14,7 @@ export type VisionPhase =
 
 export type VisionState = {
   phase: VisionPhase;
-  result: LabelAnalysis | SceneAnalysis | null;
+  result: LabelAnalysis | null;
   error: string | null;
 };
 
@@ -25,7 +25,7 @@ export type VisionAction =
   | { type: "SCAN_START" }
   | { type: "SCAN_PAUSE" }
   | { type: "STOP" }
-  | { type: "SUCCESS"; result: LabelAnalysis | SceneAnalysis; lowConfidence: boolean }
+  | { type: "SUCCESS"; result: LabelAnalysis; lowConfidence: boolean }
   | { type: "ERROR"; message: string }
   | { type: "RESET" };
 
@@ -64,4 +64,3 @@ export function visionReducer(
       return initialVisionState;
   }
 }
-

@@ -1,192 +1,100 @@
-# Kiến trúc dự án Đôi Mắt AI
+# Kiến trúc MVP — Đôi Mắt AI đọc nhãn theo mục tiêu
 
 ## 1. Problem brief
 
-### Người dùng
+- **Người dùng:** người khiếm thị, người thị lực kém và người lớn tuổi dùng Android.
+- **Công việc cần làm:** nghe đúng một thông tin trên nhãn mà không phải nghe toàn
+  bộ nội dung dài.
+- **Hành vi đích:** chọn mục cần đọc, chụp một ảnh, nhận một câu trả lời tiếng Việt
+  ngắn có bằng chứng hoặc yêu cầu chụp lại.
+- **Chỉ số chính:** hoàn tất luồng chọn mục → chụp → nghe kết quả trên thiết bị thật.
+- **Guardrail:** không biến NSX thành HSD, không suy đoán thành phần/liều dùng, không
+  trả dữ liệu mẫu cho ảnh thật.
+- **Ngoài phạm vi:** nhận diện chướng ngại vật, dẫn đường, lưu lịch sử ảnh, tài khoản,
+  RAG, agent, fine-tuning và speech-to-text trong vertical slice này.
 
-- Người khiếm thị hoặc thị lực kém cần tự đọc nhãn và nhận biết môi trường trong nhà.
-- Người lớn tuổi khó đọc chữ nhỏ, khó thao tác với giao diện nhiều bước.
-- Người thân hoặc người chăm sóc cần một công cụ hỗ trợ đơn giản, chi phí thấp.
+## 2. Quyết định sản phẩm
 
-### Kết quả mong muốn
+Ứng dụng chỉ còn một chức năng: đọc nhãn. Trước khi camera mở, người dùng chọn:
 
-Người dùng có thể lấy đúng vật phẩm và đọc được thông tin quan trọng trên nhãn mà ít phụ thuộc hơn vào người khác. Khi quét môi trường, người dùng nhận được cảnh báo sớm về một số nguy cơ đã định nghĩa.
+1. Hạn sử dụng.
+2. Tên sản phẩm.
+3. Thành phần.
+4. Hướng dẫn sử dụng.
+5. Đọc tất cả.
 
-### Giả định cần kiểm chứng
+Các nút lớn là baseline chính vì ổn định trong EAS APK, có thể được TalkBack đọc và
+không phụ thuộc speech recognizer trên từng máy. Điều khiển bằng giọng nói là bước
+sau, chỉ thêm khi luồng nút lớn đã được kiểm thử với người dùng thật.
 
-1. Camera điện thoại phổ thông chụp nhãn đủ rõ trong điều kiện trong nhà.
-2. OCR tiếng Việt đọc được tên sản phẩm, ngày tháng và dòng hướng dẫn trên bao bì thực tế.
-3. Phản hồi bằng giọng nói và rung dễ hiểu khi TalkBack đang hoạt động.
-4. Độ trễ của phân tích ảnh qua mạng vẫn chấp nhận được cho đọc nhãn.
-5. Cảnh báo cảnh vật theo ảnh lấy mẫu có giá trị dù không phải hệ thống dẫn đường thời gian thực.
+MVP dùng model vision để thực hiện OCR và trích xuất có cấu trúc trong một request.
+On-device OCR bằng ML Kit là hướng nâng cấp để giảm chi phí và hỗ trợ offline, không
+phải dependency của bản APK hiện tại.
 
-### Chỉ số MVP
-
-- Ít nhất 8/10 ảnh demo đọc đúng tên sản phẩm hoặc loại vật phẩm.
-- Ít nhất 8/10 ngày hết hạn nhìn rõ được trích xuất đúng; nếu không rõ phải từ chối thay vì đoán.
-- Thời gian từ lúc chụp đến lúc bắt đầu đọc kết quả: mục tiêu dưới 5 giây trên mạng demo.
-- 100% kết quả thuốc phân biệt rõ chữ nhìn thấy với phần không xác định.
-- 100% tác vụ chính sử dụng được với TalkBack và có nút chạm tối thiểu 48 dp.
-- Cảnh báo Thám hiểm không lặp quá dày và luôn có cách dừng ngay.
-
-## 2. Quyết định phạm vi
-
-### Có trong MVP
-
-- Chụp một ảnh và hướng dẫn căn camera bằng âm thanh ngắn.
-- OCR chữ tiếng Việt/Latin trên thiết bị khi tích hợp khả thi.
-- Phân tích ảnh bằng vision provider qua backend để nhận diện vật phẩm và cấu trúc nội dung.
-- Đọc kết quả bằng TTS tiếng Việt.
-- Quét cảnh theo nhịp 2–3 giây, cảnh báo tập nguy cơ giới hạn.
-- Rung theo mức cảnh báo.
-- Đường chạy Android dùng Groq vision thật và fail-closed; fixture chỉ tồn tại
-  trong test/evaluation offline, không thay thế ảnh thật khi provider lỗi.
-- Không lưu ảnh mặc định; log chỉ chứa thời gian, độ trễ, mã lỗi và loại kết quả.
-
-### Không có trong MVP
-
-- Dẫn đường tự động hoặc cam kết tránh va chạm.
-- Đo khoảng cách chính xác bằng một camera RGB.
-- Khẳng định một người đang tiến đến gần khi chưa có tracking/depth.
-- Chẩn đoán y tế, đề xuất liều dùng hoặc diễn giải đơn thuốc.
-- Nhận diện mọi sản phẩm trên thị trường.
-- Tài khoản, mạng xã hội, lịch sử ảnh hoặc vector database.
-
-## 3. Lựa chọn công nghệ
-
-| Thành phần | MVP | Lý do |
-|---|---|---|
-| Mobile | React Native + Expo development build + TypeScript | Một codebase, camera/TTS/haptics sẵn có, phù hợp hackathon |
-| Camera | `expo-camera` | Capture ảnh và preview đơn giản |
-| Giọng nói | `expo-speech`, locale `vi-VN` | TTS cục bộ, không cần backend âm thanh |
-| Rung | `expo-haptics` | Phản hồi tactile đa nền tảng |
-| Trợ năng | React Native accessibility API, kiểm thử TalkBack | Nhãn, role, state, live announcement và focus |
-| OCR | ML Kit Text Recognition v2 qua native adapter khi có; server/provider fallback | OCR Latin hỗ trợ tiếng Việt và có thể chạy on-device |
-| Backend | FastAPI + Pydantic | API nhỏ, validation rõ, sinh OpenAPI |
-| Hiểu ảnh | Adapter `VisionProvider` thay thế được | Không khóa nhà cung cấp; trả JSON có schema |
-| Lưu trữ | Không có database trong MVP | Giảm phạm vi và rủi ro dữ liệu |
-| Kiểm thử | Vitest/Jest phía mobile, pytest phía API, bộ ảnh eval nhỏ | Chứng minh hành vi cốt lõi |
-
-Không dùng agent, RAG hoặc fine-tuning trong MVP vì luồng xử lý cố định và không có kho tri thức cần truy hồi.
-
-## 4. Sơ đồ hệ thống
+## 3. Sơ đồ hệ thống
 
 ```mermaid
 flowchart LR
-    U[Người dùng<br/>TalkBack + chạm + giọng nói]
-    M[Ứng dụng mobile]
-    C[Camera]
-    O[OCR on-device]
-    T[TTS + Haptics]
-    A[FastAPI]
-    V[VisionProvider adapter]
-    R[Groq Chat Completions<br/>Qwen vision]
+    U[Người dùng<br/>TalkBack + nút lớn]
+    M[Expo Android APK]
+    C[expo-camera]
+    S[SecureStore<br/>invite code]
+    A[FastAPI HTTPS<br/>Render]
+    V[VisionProvider]
+    G[Groq Qwen Vision]
+    T[TTS + haptics]
 
-    U --> M
+    U -->|chọn requested_field| M
     M --> C
-    C --> O
-    O --> M
-    C -->|ảnh nén + OCR text| A
-    A --> V
-    V -->|ảnh base64 + JSON mode| R
-    R -->|JSON object| V
-    V -->|JSON có cấu trúc| A
-    A -->|kết quả + confidence + evidence| M
-    M --> T
-    T --> U
+    C -->|JPEG + requested_field| A
+    S -->|Bearer token| A
+    A --> V -->|ảnh + prompt tập trung| G
+    G -->|JSON có schema| V --> A
+    A -->|speech_text + evidence| M --> T --> U
 ```
 
-## 5. Luồng đọc nhãn
+## 4. Luồng chính
 
-1. Người dùng chọn “Đọc nhãn”.
-2. Ứng dụng thông báo “Đưa nhãn vào giữa camera” và cho phép chụp bằng nút lớn.
-3. Mobile kiểm tra ảnh tối, rung hoặc mờ ở mức cơ bản. Nếu không đạt, yêu cầu chụp lại.
-4. OCR trích xuất chữ nhìn thấy. Ảnh nén và OCR text được gửi tới `POST /v1/analyze-label`.
-5. Vision provider chỉ cấu trúc hóa thông tin có bằng chứng:
-   - loại hoặc tên sản phẩm;
-   - hạn sử dụng;
-   - hướng dẫn nhìn thấy trên nhãn;
-   - cảnh báo;
-   - phần chưa đọc rõ.
-6. Backend validate schema, loại bỏ câu vượt quá bằng chứng và trả kết quả.
-7. Mobile hiển thị chữ lớn, đọc bản tóm tắt và cho phép “Đọc lại”, “Đọc toàn bộ chữ”, “Chụp lại”.
+1. Người dùng chọn một `requested_field`.
+2. App hiển thị hướng dẫn căn đúng vùng chữ cho mục đó.
+3. Nút chụp bị khóa cho tới khi `onCameraReady` chạy.
+4. App chụp JPEG chất lượng 0.62; lỗi camera tạm thời được thử lại đúng một lần sau
+   400 ms.
+5. App gửi multipart `image`, `requested_field`, `locale` và Bearer invite code.
+6. API xác thực mã, MIME, signature, kích thước và rate limit trước khi gọi model.
+7. Prompt yêu cầu model chỉ trả mục đã chọn; Pydantic từ chối JSON sai schema.
+8. App đọc `speech_text`, hiển thị bằng chứng và cho phép chụp lại cùng mục.
 
-### Quy tắc an toàn cho thuốc
-
-- Không suy diễn liều dùng, chống chỉ định hoặc hướng dẫn dùng thuốc.
-- Chỉ đọc nội dung thấy rõ trên nhãn.
-- Nếu ngày hết hạn mơ hồ, nói “Tôi chưa đọc rõ hạn sử dụng” và yêu cầu chụp lại.
-- Nếu sản phẩm có vẻ là thuốc, thêm nhắc nhở kiểm tra với dược sĩ/người chăm sóc khi thông tin quan trọng không rõ.
-
-## 6. Luồng Thám hiểm MVP
-
-1. Người dùng giữ điện thoại hướng về phía trước và bật “Thám hiểm”.
-2. Ứng dụng lấy một frame sau mỗi 2–3 giây; không queue frame cũ.
-3. Backend trả tối đa ba nguy cơ trong danh sách cho phép:
-   - vật cản lớn phía trước;
-   - người trong khung hình;
-   - bậc thang nhìn thấy;
-   - sàn có vùng nghi là ướt;
-   - cửa đóng hoặc lối đi bị chắn.
-4. Mobile chỉ đọc cảnh báo mới hoặc có mức khẩn cấp tăng. Haptics map theo `info/warning/urgent`.
-5. Người dùng có nút “Dừng” luôn hiện diện và hỗ trợ accessibility action.
-
-Đây là phân tích cảnh lấy mẫu, không phải dẫn đường thời gian thực. Không phát biểu khoảng cách hoặc hướng chuyển động nếu pipeline không có cảm biến chiều sâu và tracking qua nhiều frame.
-
-## 7. API contracts
+## 5. API contract
 
 ### `POST /v1/analyze-label`
 
-Input multipart:
+Multipart:
 
 - `image`: JPEG/PNG/WEBP, tối đa 5 MB;
+- `requested_field`: `expiry_date`, `product_name`, `ingredients`,
+  `usage_instructions` hoặc `all`; mặc định `all` để tương thích client cũ;
 - `ocr_text`: tùy chọn;
 - `locale`: mặc định `vi-VN`.
 
-Response:
+Response ví dụ:
 
 ```json
 {
   "success": true,
   "data": {
-    "request_id": "uuid",
-    "product_type": "medicine",
-    "product_name": "Panadol Extra",
-    "expiry_date": "2027-10",
-    "visible_instructions": ["Uống sau khi ăn"],
+    "requested_field": "expiry_date",
+    "product_type": null,
+    "product_name": null,
+    "expiry_date": "2027-10-15",
+    "ingredients": [],
+    "visible_instructions": [],
     "warnings": [],
     "unreadable_fields": [],
-    "evidence_text": ["PANADOL EXTRA", "EXP 10/2027", "Uống sau khi ăn"],
+    "evidence_text": ["HSD 15/10/2027"],
     "confidence": "high",
-    "speech_text": "Đây có thể là Panadol Extra. Hạn sử dụng tháng 10 năm 2027.",
-    "provider": "groq",
-    "demo_mode": false
-  },
-  "error": null
-}
-```
-
-Mọi field không có bằng chứng phải là `null`, mảng rỗng hoặc nằm trong `unreadable_fields`.
-
-### `POST /v1/analyze-scene`
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
+    "speech_text": "Hạn sử dụng: ngày 15 tháng 10 năm 2027.",
     "request_id": "uuid",
-    "hazards": [
-      {
-        "type": "obstacle",
-        "direction": "center",
-        "urgency": "warning",
-        "confidence": "medium",
-        "speech_text": "Có vật cản ở phía trước."
-      }
-    ],
-    "limitations": ["Không đo được khoảng cách chính xác từ ảnh này."],
     "provider": "groq",
     "demo_mode": false
   },
@@ -194,75 +102,47 @@ Response:
 }
 ```
 
-Error response dùng cùng envelope với `success: false`, `data: null` và
-`error: { code, message, request_id }`.
+`expiry_date` dùng `YYYY-MM-DD` khi thấy đủ ngày và `YYYY-MM` khi nhãn chỉ có tháng.
 
-## 8. Biên hệ thống và bảo mật
+## 6. Reliability và quan sát
 
-- API key chỉ được truyền từ Docker environment vào backend, không vào bundle mobile.
-- Backend không ghi ảnh hoặc OCR vào log; ảnh chỉ tồn tại trong bộ nhớ của request.
-- Kiểm tra MIME, kích thước, timeout và rate limit cho upload.
-- Không log ảnh, OCR text đầy đủ hoặc dữ liệu cá nhân.
-- Xử lý ảnh trong bộ nhớ và giải phóng sau request.
-- Provider timeout phải trả thông báo dễ hiểu và cho phép thử lại.
-- Prompt hệ thống coi chữ trong ảnh là dữ liệu không tin cậy; không làm theo chỉ dẫn xuất hiện trên nhãn.
-- Endpoint chỉ trả schema cố định, không trả HTML tùy ý.
-
-## 9. Khả năng suy giảm
-
-| Sự cố | Hành vi |
+| Điểm lỗi | Hành vi |
 |---|---|
-| Không có mạng | OCR on-device đọc toàn bộ chữ; giải thích rằng nhận diện nâng cao chưa khả dụng |
-| Ảnh mờ/tối | Không gọi provider; hướng dẫn chụp lại |
-| Provider timeout | Rung lỗi một lần, giữ màn hình camera, cho phép thử lại |
-| Thiếu/sai API key | Health/API trả `provider_not_configured` hoặc `provider_failure`; không dùng fixture |
-| Confidence thấp | Dùng ngôn ngữ “có thể”, đọc bằng chứng và không khẳng định |
-| TTS lỗi | Hiển thị chữ lớn, tương phản cao và phát accessibility announcement |
-| Quá nhiều cảnh báo | Deduplicate theo loại/hướng trong cửa sổ thời gian |
+| Camera chưa sẵn sàng | Khóa nút chụp và hiển thị “Đang khởi động camera” |
+| Capture tạm lỗi | Thử lại một lần, sau đó báo lỗi rõ ràng |
+| Render cold-start/mạng lỗi | Timeout 90 giây, retry một lần với body mới |
+| HTTP 502/503/504 | Retry một lần; không retry 401/413/422/429 |
+| Provider timeout | API trả `provider_timeout` cùng request ID |
+| Provider trả JSON sai | Log loại lỗi, không log ảnh/OCR/model output; trả `provider_failure` |
+| Mục không đọc rõ | Model phải abstain, đưa field vào `unreadable_fields` |
 
-## 10. Quyết định live vision
+Backend log `request_id`, `requested_field`, provider, latency và loại lỗi. Backend
+không log ảnh, invite code, OCR đầy đủ hoặc response model.
 
-- `VISION_PROVIDER=groq` và `ALLOW_FIXTURE_FALLBACK=false` là mặc định runtime.
-- Ảnh đi Android → FastAPI → adapter `VisionProvider` → Groq Chat Completions; model chỉ
-  được gọi từ backend và mobile không bao giờ nhận API key.
-- Groq JSON mode không tự bảo đảm toàn bộ schema, nên output luôn bị Pydantic
-  kiểm tra trước khi trả về mobile. Nội dung chữ
-  trong ảnh được coi là dữ liệu không tin cậy để giảm indirect prompt injection.
-- Không retry tự động request vision để tránh nhân đôi chi phí và độ trễ khi trạng
-  thái request không rõ; người dùng chủ động chụp/thử lại.
-- Fixture provider được giữ cho test deterministic và evaluation plumbing, nhưng
-  việc bật nó trong runtime là một lựa chọn demo rõ ràng, không phải fallback.
-- Release chỉ được xem là đạt khi test với ảnh thật xác nhận `provider=groq`,
-  `demo_mode=false`, tên/bằng chứng liên quan trực tiếp tới ảnh đã chụp.
+## 7. Security và privacy
 
-## 11. Hướng nâng cấp production
+- `GROQ_API_KEY` chỉ ở Render Environment.
+- Invite code thô chỉ ở password manager và Android SecureStore; Render chỉ giữ
+  SHA-256 hash và so sánh constant-time.
+- APK chỉ chứa URL HTTPS công khai và cờ bật auth.
+- Ảnh tồn tại trong bộ nhớ của request, không có database hoặc object storage.
+- Chữ trong ảnh được coi là untrusted data để giảm prompt injection.
+- Rate limit theo invite code hợp lệ, theo IP với request chưa xác thực.
 
-### Preview ổn định qua Internet
+## 8. Chi phí và suy giảm
 
-- EAS Internal Distribution tạo APK cài trực tiếp, không phụ thuộc Expo Go,
-  Metro hoặc IP của máy phát triển.
-- APK chỉ chứa URL HTTPS công khai. Groq key chỉ tồn tại trong secret store của
-  backend cloud.
-- Người thử nghiệm nhập mã mời riêng; Android lưu mã bằng SecureStore và backend
-  so sánh SHA-256 hash constant-time trước khi nhận ảnh.
-- Render Blueprint chạy Docker ở Singapore với health check `/health`. Gói
-  luôn-chạy được chọn thay vì free để tránh cold start sau idle.
-- Đây là private preview auth, chưa phải hệ thống identity production. Khi phát
-  hành công khai cần user identity/app attestation, token lifecycle và managed
-  rate limiting.
+Render Free ngủ sau thời gian idle; request đầu có thể chậm. Retry có giới hạn giúp
+phục hồi nhưng không bảo đảm SLA. Groq model hiện là preview và có quota; adapter
+giữ vendor boundary để có thể đổi provider. Khi cần production ổn định, dùng compute
+always-on, managed rate limit và monitoring.
 
-- Native Android/Kotlin hoặc native module cho pipeline CameraX ổn định.
-- Object detection/segmentation on-device bằng LiteRT/MediaPipe.
-- Depth API hoặc cảm biến depth trên thiết bị hỗ trợ.
-- Tracking nhiều frame và ước lượng chuyển động trước khi nói “đang tiến lại gần”.
-- Đánh giá với người khiếm thị thật, nhiều thiết bị, ánh sáng và accent tiếng Việt.
-- Safety case, monitoring và quy trình báo lỗi trước khi quảng bá như công cụ hỗ trợ di chuyển.
+## 9. Evaluation và release gate
 
-## 12. Tài liệu kỹ thuật chính
-
-- Expo Camera: https://docs.expo.dev/versions/latest/sdk/camera/
-- Expo Speech: https://docs.expo.dev/versions/latest/sdk/speech/
-- Expo Haptics: https://docs.expo.dev/versions/latest/sdk/haptics/
-- React Native Accessibility: https://reactnative.dev/docs/accessibility
-- ML Kit Text Recognition v2: https://developers.google.com/ml-kit/vision/text-recognition/v2/android
-- CameraX Image Analysis: https://developer.android.com/media/camera/camerax/analyze
+- Unit/API tests kiểm tra từng `requested_field`, invalid target, auth, upload và
+  provider contract.
+- Fixture evaluation chỉ gồm label targets; không còn scene/hazard cases.
+- Release APK chỉ đạt khi thử trên Android thật với ít nhất: HSD rõ, HSD mờ, tên
+  sản phẩm, thành phần và hướng dẫn; kết quả phải liên quan ảnh, `provider=groq`,
+  `demo_mode=false`.
+- TalkBack, autofocus, camera lifecycle và cold-start phải được kiểm tra trên ít
+  nhất hai thiết bị trước khi gọi là ổn định.

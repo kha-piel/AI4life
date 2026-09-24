@@ -23,7 +23,7 @@ Android APK
   └─ HTTPS + Authorization: Bearer <mã mời>
                           │
                           ▼
-Render Web Service (Singapore, Docker, luôn chạy)
+Render Web Service (Singapore, Docker, có thể cold-start ở gói free)
   ├─ health check /health
   ├─ SHA-256 hash của các mã mời
   ├─ upload validation + rate limit
@@ -34,9 +34,10 @@ Groq Vision
 ```
 
 Render là adapter triển khai: backend vẫn là Docker chuẩn và có thể chuyển sang
-Cloud Run/Fly.io mà không đổi mobile contract. `render.yaml` chọn compute
-`0.5c-512mb`; không dùng free cho đường chạy ổn định vì free service ngủ khi
-không có traffic.
+Cloud Run/Fly.io mà không đổi mobile contract. `render.yaml` hiện chọn gói
+`free`; service có thể ngủ khi không có traffic nên mobile chờ tối đa 90 giây
+và retry một lần với lỗi mạng/502/503/504. Muốn bỏ cold-start thì đổi sang gói
+trả phí hoặc một hạ tầng luôn chạy.
 
 ## 3. Tạo mã mời
 
@@ -55,7 +56,8 @@ docker run --rm python:3.12-slim python -c "import hashlib,secrets; t=secrets.to
 ## 4. Deploy backend lên Render
 
 Điều kiện: code hiện tại đã được commit và push lên GitHub. Repository đã có
-`render.yaml` ở root.
+`render.yaml` ở root. Luôn deploy backend và kiểm tra contract mới trước khi
+phát hành APK mới.
 
 1. Mở Render Dashboard → **New → Blueprint**.
 2. Kết nối repository `AI4life` và chọn branch `main`.
@@ -137,8 +139,9 @@ Google Play sử dụng profile `production` mặc định để tạo AAB, khô
 1. Cài APK từ EAS URL và mở app khi không chạy Metro trên máy phát triển.
 2. Nhập sai mã: phải báo mã không hợp lệ.
 3. Nhập đúng mã: app nói “Đã kết nối máy chủ an toàn”.
-4. Chụp một nhãn riêng biệt: response phải có `provider=groq`,
-   `demo_mode=false` và nội dung khớp ảnh.
+4. Lần lượt chọn **Hạn sử dụng**, **Tên sản phẩm**, **Thành phần** và **Hướng
+   dẫn sử dụng**, rồi chụp đúng vùng chữ. Kết quả phải chỉ đọc mục đã chọn,
+   có `provider=groq`, `demo_mode=false` và nội dung khớp ảnh.
 5. Tắt Docker Desktop/máy phát triển rồi thử lại: app vẫn phải hoạt động.
 6. Thu hồi hash của mã vừa thử trên Render: lần gọi tiếp theo phải trả `401`.
 
@@ -151,9 +154,9 @@ Google Play sử dụng profile `production` mặc định để tạo AAB, khô
   người dùng vẫn có thể chủ động chia sẻ mã; thu hồi hash khi mất thiết bị.
 - Rate limit hiện nằm trong memory của một instance. Nếu scale nhiều instance,
   chuyển rate limit sang managed gateway/Redis.
-- Groq Free Plan có quota thấp cho ảnh; nhiều người quét cảnh đồng thời có thể
-  nhận `429`. Với vận hành ổn định cần nâng quota hoặc chuyển scene detection
-  sang on-device.
+- Groq Free Plan có quota thấp cho ảnh; nhiều người đọc nhãn đồng thời có thể
+  nhận `429`. Với vận hành ổn định cần nâng quota hoặc thêm OCR on-device để
+  giảm số request vision.
 - Rollback backend bằng Render Deploys → chọn deploy trước. Rollback mobile bằng
   phát lại APK trước; chỉ thêm EAS Update sau khi đã có quy trình kiểm thử update.
 

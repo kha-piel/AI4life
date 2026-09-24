@@ -16,10 +16,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Đôi Mắt AI cần camera để đọc nhãn và phân tích cảnh trước mặt."
+          "cameraPermission": "Đôi Mắt AI cần camera để đọc thông tin trên nhãn sản phẩm."
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c0f9f894-72aa-4a81-8ee1-dc5cfd4ee136"
+      }
+    }
   }
 }

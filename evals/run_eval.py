@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from app.providers.fixture import FixtureVisionProvider
+from app.schemas import LabelTarget
 
 
 ROOT = Path(__file__).resolve().parent
@@ -31,7 +32,6 @@ async def evaluate() -> dict[str, Any]:
     ]
     field_checks: list[bool] = []
     abstention_checks: list[bool] = []
-    false_alarm_checks: list[bool] = []
     latencies_ms: list[float] = []
     cases: list[dict[str, Any]] = []
 
@@ -40,42 +40,32 @@ async def evaluate() -> dict[str, Any]:
         image_bytes = b"\xff\xd8\xff" + row["fixture_id"].encode()
         expected = row["expected"]
 
-        if row["kind"] == "label":
-            result = await provider.analyze_label(
-                image_bytes,
-                "image/jpeg",
-                row.get("ocr_text"),
-                "vi-VN",
-            )
-            checks = {
-                "product_name": result.product_name == expected["product_name"],
-                "expiry_date": result.expiry_date == expected["expiry_date"],
-            }
-            field_checks.extend(checks.values())
-            abstention_ok = (result.expiry_date is None) == expected["abstain_expiry"]
-            abstention_checks.append(abstention_ok)
-            case_result = {"checks": checks, "abstention_ok": abstention_ok}
-        else:
-            result = await provider.analyze_scene(
-                image_bytes, "image/jpeg", "vi-VN"
-            )
-            actual_types = [hazard.type for hazard in result.hazards]
-            expected_types = expected["hazard_types"]
-            match = actual_types == expected_types
-            field_checks.append(match)
-            false_alarm_ok = bool(actual_types) != expected["false_alarm"]
-            false_alarm_checks.append(false_alarm_ok)
-            case_result = {
-                "hazard_types_match": match,
-                "false_alarm_check": false_alarm_ok,
-            }
+        requested_field = LabelTarget(row["requested_field"])
+        result = await provider.analyze_label(
+            image_bytes,
+            "image/jpeg",
+            row.get("ocr_text"),
+            "vi-VN",
+            requested_field,
+        )
+        actual = getattr(result, expected["field"])
+        match = actual == expected["value"]
+        field_checks.append(match)
+        abstention_ok = (actual is None or actual == []) == expected["abstain"]
+        abstention_checks.append(abstention_ok)
+        case_result = {
+            "requested_field": requested_field.value,
+            "field": expected["field"],
+            "match": match,
+            "abstention_ok": abstention_ok,
+        }
 
         latency_ms = (time.perf_counter() - started) * 1000
         latencies_ms.append(latency_ms)
         cases.append(
             {
                 "fixture_id": row["fixture_id"],
-                "kind": row["kind"],
+                "kind": "label",
                 "latency_ms": round(latency_ms, 3),
                 **case_result,
             }
@@ -91,11 +81,6 @@ async def evaluate() -> dict[str, Any]:
             "abstention_correctness": (
                 sum(abstention_checks) / len(abstention_checks)
                 if abstention_checks
-                else None
-            ),
-            "false_alarm_check_rate": (
-                sum(false_alarm_checks) / len(false_alarm_checks)
-                if false_alarm_checks
                 else None
             ),
             "latency_p50_ms": round(statistics.median(latencies_ms), 3),
@@ -118,7 +103,6 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"- Dataset: {report['dataset_type']} ({report['sample_size']} cases)",
             f"- Field accuracy: {metrics['field_accuracy']:.1%}",
             f"- Abstention correctness: {metrics['abstention_correctness']:.1%}",
-            f"- False-alarm check rate: {metrics['false_alarm_check_rate']:.1%}",
             f"- Latency p50/p95: {metrics['latency_p50_ms']} / {metrics['latency_p95_ms']} ms",
             "",
             "## Limitations",
@@ -142,4 +126,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

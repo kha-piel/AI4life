@@ -1,4 +1,5 @@
-{"fixture_id":"label-panadol-01","kind":"label","ocr_text":"PANADOL EXTRA EXP 10/2027 Uống sau khi ăn","expected":{"product_name":"Panadol Extra mẫu","expiry_date":"2027-10","abstain_expiry":false}}
-{"fixture_id":"label-shampoo-01","kind":"label","ocr_text":"DẦU GỘI Tránh tiếp xúc với mắt","expected":{"product_name":"Dầu gội mẫu","expiry_date":null,"abstain_expiry":true}}
-{"fixture_id":"scene-obstacle-01","kind":"scene","expected":{"hazard_types":["obstacle"],"false_alarm":false}}
-
+{"fixture_id":"label-panadol-expiry","kind":"label","requested_field":"expiry_date","ocr_text":"PANADOL EXTRA EXP 10/2027 Uống sau khi ăn","expected":{"field":"expiry_date","value":"2027-10","abstain":false}}
+{"fixture_id":"label-shampoo-expiry","kind":"label","requested_field":"expiry_date","ocr_text":"DẦU GỘI Tránh tiếp xúc với mắt","expected":{"field":"expiry_date","value":null,"abstain":true}}
+{"fixture_id":"label-panadol-name","kind":"label","requested_field":"product_name","ocr_text":"PANADOL EXTRA EXP 10/2027","expected":{"field":"product_name","value":"Panadol Extra mẫu","abstain":false}}
+{"fixture_id":"label-panadol-ingredients","kind":"label","requested_field":"ingredients","ocr_text":"PANADOL EXTRA Thành phần Paracetamol Caffeine","expected":{"field":"ingredients","value":["Paracetamol","Caffeine"],"abstain":false}}
+{"fixture_id":"label-shampoo-usage","kind":"label","requested_field":"usage_instructions","ocr_text":"DẦU GỘI Tránh tiếp xúc với mắt","expected":{"field":"visible_instructions","value":["Tránh tiếp xúc với mắt"],"abstain":false}}

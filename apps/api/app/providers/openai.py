@@ -7,8 +7,8 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from app.errors import VisionProviderError
-from app.providers.prompts import LABEL_INSTRUCTIONS, SCENE_INSTRUCTIONS
-from app.schemas import LabelProviderResult, SceneProviderResult
+from app.providers.prompts import LABEL_INSTRUCTIONS, build_label_prompt
+from app.schemas import LabelProviderResult, LabelTarget
 
 
 ResultT = TypeVar("ResultT", bound=BaseModel)
@@ -111,6 +111,11 @@ class OpenAIVisionProvider:
             output_text = _extract_output_text(response.json())
             return result_type.model_validate_json(output_text)
         except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as exc:
+            logger.warning(
+                "openai_vision_invalid_structured_result model=%s error_type=%s",
+                self.model,
+                type(exc).__name__,
+            )
             raise VisionProviderError("OpenAI returned an invalid structured result") from exc
 
     async def analyze_label(
@@ -119,28 +124,13 @@ class OpenAIVisionProvider:
         mime_type: str,
         ocr_text: str | None,
         locale: str,
+        requested_field: LabelTarget,
     ) -> LabelProviderResult:
-        evidence = ocr_text.strip()[:4000] if ocr_text else "(không có OCR text)"
         return await self._request(
             image_bytes=image_bytes,
             mime_type=mime_type,
-            prompt=f"Phân tích nhãn. Locale: {locale}. OCR text:\n{evidence}",
+            prompt=build_label_prompt(requested_field, locale, ocr_text),
             instructions=LABEL_INSTRUCTIONS,
             result_type=LabelProviderResult,
             schema_name="label_analysis",
-        )
-
-    async def analyze_scene(
-        self,
-        image_bytes: bytes,
-        mime_type: str,
-        locale: str,
-    ) -> SceneProviderResult:
-        return await self._request(
-            image_bytes=image_bytes,
-            mime_type=mime_type,
-            prompt=f"Phân tích nguy cơ trong cảnh. Locale: {locale}.",
-            instructions=SCENE_INSTRUCTIONS,
-            result_type=SceneProviderResult,
-            schema_name="scene_analysis",
         )
